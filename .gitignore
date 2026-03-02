@@ -1,5 +1,23 @@
 # Build artifacts
 csm
+bin/
+dist/
+build/
+*.exe
+*.out
+*.test
 
 # Local runtime files
 logs/
+
+# Go coverage / profiling
+coverage.out
+*.coverprofile
+*.pprof
+
+# OS / editor temp files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.tmp
