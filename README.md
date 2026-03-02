@@ -1,27 +1,33 @@
 # codex-sm
 
-`codex-sm` 是一个本地 Codex Session 管理工具（Go 实现），支持：
+`codex-sm` is a safety-first local Codex session manager written in Go.
 
-- 会话列表查看（`list`）
-- 安全删除（`delete`，默认 dry-run）
-- 会话分组统计（`group`，按 `day` / `health`）
+It provides:
+
+- Session listing (`list`)
+- Session grouping (`group`)
+- Safe deletion (`delete`, dry-run by default)
 
 ## Features
 
-- 默认安全：`delete` 默认 `--dry-run=true`
-- 真实删除需要显式确认：`--dry-run=false --confirm`
-- 默认软删除：移动到 `~/.codex/trash/sessions/...`
-- 可选硬删除：`--hard`
-- 交互确认：真实删除默认会提示确认（可 `--interactive-confirm=false`）
-- 输出优化：默认显示最近 10 条，支持 `--detailed`、`--pager`、`--color`
+- Safe by default: `delete` runs with `--dry-run=true`
+- Real deletion requires explicit intent: `--dry-run=false --confirm`
+- Default real deletion mode is soft delete (move to trash)
+- Optional hard delete with `--hard`
+- Interactive confirmation for real delete (enabled by default)
+- Readable CLI output:
+  - compact list view by default
+  - detailed mode
+  - pager mode
+  - colored help/output
 
-## Install / Build
+## Build
 
 ```bash
 make build
 ```
 
-或：
+Or:
 
 ```bash
 go build ./cmd/csm
@@ -30,26 +36,54 @@ go build ./cmd/csm
 ## Quick Start
 
 ```bash
-# 列出最近 10 条
-./csm list
+# List recent sessions (default limit: 10)
+csm list
 
-# 详细模式
-./csm list --detailed
+# Detailed list view
+csm list --detailed
 
-# 分页查看全部
-./csm list --limit 0 --pager
+# Show all with pager
+csm list --limit 0 --pager
 
-# 按天分组
-./csm group --by day
+# Group by day
+csm group --by day
 
-# 按健康状态分组
-./csm group --by health
+# Group by health
+csm group --by health
 
-# 删除预演（默认 dry-run）
-./csm delete --id-prefix 019ca9
+# Dry-run delete (default behavior)
+csm delete --id-prefix 019ca9
 
-# 真实软删除（需确认）
-./csm delete --id-prefix 019ca9 --dry-run=false --confirm
+# Real soft delete
+csm delete --id-prefix 019ca9 --dry-run=false --confirm
+
+# Real hard delete
+csm delete --id 019ca9c1-3df3-7551-b04b-b2a91c486755 --dry-run=false --confirm --hard
+```
+
+## Delete Safety Model
+
+`delete` targets are selected by flags (not positional args):
+
+- `--id <session_id>`
+- `--id-prefix <prefix>`
+- `--older-than <duration>` (for example `30d`, `12h`)
+- `--health <ok|corrupted|missing-meta>`
+
+Rules:
+
+- At least one selector is required
+- Dry-run is default
+- Real delete requires `--confirm`
+- Batch real delete requires approval (`--yes` or interactive confirm)
+
+## Command Help
+
+```bash
+csm help
+csm help list
+csm help group
+csm help delete
 ```
 
 ## Development
@@ -61,11 +95,11 @@ make test
 make check
 ```
 
-说明：
+Tooling defaults:
 
-- `fmt` 使用 `gofumpt`
-- `lint` 使用 `go vet`
+- Formatter: `gofumpt`
+- Lint: `go vet`
 
 ## License
 
-BSD 3-Clause License，详见 [LICENSE](./LICENSE)。
+Licensed under the BSD 3-Clause License. See [LICENSE](./LICENSE) for details.
