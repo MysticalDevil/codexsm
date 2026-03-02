@@ -12,6 +12,11 @@ const version = "0.1.0"
 
 // NewRootCmd builds the top-level csm command and registers all subcommands.
 func NewRootCmd() *cobra.Command {
+	var (
+		logLevel  string
+		logFormat string
+	)
+
 	cmd := &cobra.Command{
 		Use:   "csm",
 		Short: "Codex session manager",
@@ -25,11 +30,17 @@ func NewRootCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return configureLogger(logFormat, logLevel, cmd.ErrOrStderr())
+		},
 	}
+	cmd.PersistentFlags().StringVar(&logLevel, "log-level", "warn", "log level: debug|info|warn|error")
+	cmd.PersistentFlags().StringVar(&logFormat, "log-format", "text", "log format: text|json")
 
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newGroupCmd())
 	cmd.AddCommand(newDeleteCmd())
+	cmd.AddCommand(newRestoreCmd())
 	cmd.AddCommand(newVersionCmd())
 	applyHelpStyles(cmd)
 	return cmd

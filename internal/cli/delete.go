@@ -30,6 +30,7 @@ func newDeleteCmd() *cobra.Command {
 		yes          bool
 		hard         bool
 		interactive  bool
+		previewLimit int
 		maxBatch     int
 	)
 
@@ -44,6 +45,7 @@ func newDeleteCmd() *cobra.Command {
 			"  csm delete --older-than 90d --dry-run=false --confirm --yes\n" +
 			"  csm delete --id <session_id> --dry-run=false --confirm --hard",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			lg := logger().With("command", "delete")
 			var err error
 			sessionsRoot, err = resolveOrDefault(sessionsRoot, config.DefaultSessionsRoot)
 			if err != nil {
@@ -68,6 +70,10 @@ func newDeleteCmd() *cobra.Command {
 				return err
 			}
 			candidates := session.FilterSessions(sessions, sel, time.Now())
+			lg.Info("matched delete candidates", "count", len(candidates), "dry_run", dryRun, "hard", hard)
+			if !dryRun {
+				printDeletePreview(cmd, candidates, hard, previewLimit)
+			}
 
 			if !dryRun && interactive && !yes && len(candidates) > 0 {
 				ok, err := interactiveConfirmDelete(cmd, len(candidates), hard)
@@ -106,6 +112,9 @@ func newDeleteCmd() *cobra.Command {
 				rec.Sessions = append(rec.Sessions, audit.SessionRef{SessionID: s.SessionID, Path: s.Path})
 			}
 			logErr := audit.WriteActionLog(logFile, rec)
+			if logErr != nil {
+				lg.Error("failed to write action log", "error", logErr, "log_file", logFile)
+			}
 
 			printDeleteSummary(cmd, summary)
 
@@ -113,15 +122,18 @@ func newDeleteCmd() *cobra.Command {
 				return WithExitCode(fmt.Errorf("delete completed but failed to write log: %w", logErr), 3)
 			}
 			if deleteErr != nil {
+				lg.Warn("delete validation or execution returned error", "error", deleteErr)
 				return WithExitCode(deleteErr, 1)
 			}
 
 			if summary.Failed > 0 {
+				lg.Warn("delete completed with failures", "failed", summary.Failed, "succeeded", summary.Succeeded)
 				if summary.Succeeded == 0 {
 					return WithExitCode(fmt.Errorf("all operations failed: %d failed", summary.Failed), 3)
 				}
 				return WithExitCode(fmt.Errorf("partial failure: %d failed", summary.Failed), 2)
 			}
+			lg.Info("delete completed", "matched", summary.MatchedCount, "succeeded", summary.Succeeded, "simulation", summary.Simulation)
 			return nil
 		},
 	}
@@ -138,6 +150,7 @@ func newDeleteCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip interactive prompt and approve delete")
 	cmd.Flags().BoolVar(&hard, "hard", false, "hard delete (permanent)")
 	cmd.Flags().BoolVar(&interactive, "interactive-confirm", true, "prompt for interactive confirmation on real delete")
+	cmd.Flags().IntVar(&previewLimit, "preview-limit", 5, "number of matched sessions shown before real delete")
 	cmd.Flags().IntVar(&maxBatch, "max-batch", 50, "max sessions allowed for one real delete command")
 
 	return cmd
@@ -163,10 +176,36 @@ func printDeleteSummary(cmd *cobra.Command, s session.DeleteSummary) {
 	}
 }
 
+func printDeletePreview(cmd *cobra.Command, candidates []session.Session, hard bool, previewLimit int) {
+	if previewLimit < 0 {
+		previewLimit = 0
+	}
+	mode := "soft-delete"
+	if hard {
+		mode = "hard-delete"
+	}
+	var totalBytes int64
+	for _, s := range candidates {
+		totalBytes += s.SizeBytes
+	}
+	logger().Debug("delete preview generated", "matched", len(candidates), "affected_bytes", totalBytes, "preview_limit", previewLimit, "hard", hard)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "preview action=%s matched=%d affected=%s\n", mode, len(candidates), formatBytesIEC(totalBytes))
+	for i, s := range candidates {
+		if i >= previewLimit {
+			break
+		}
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  - %s %s\n", shortID(s.SessionID), s.Path)
+	}
+	if len(candidates) > previewLimit {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ... and %d more\n", len(candidates)-previewLimit)
+	}
+}
+
 func interactiveConfirmDelete(cmd *cobra.Command, count int, hard bool) (bool, error) {
 	in := cmd.InOrStdin()
 	out := cmd.ErrOrStderr()
 	if !isInteractiveReader(in) {
+		logger().Warn("interactive confirm requested but stdin is not terminal", "count", count)
 		return false, fmt.Errorf("interactive confirm requires a terminal stdin; use --yes to continue non-interactively")
 	}
 
@@ -179,7 +218,9 @@ func interactiveConfirmDelete(cmd *cobra.Command, count int, hard bool) (bool, e
 		if err != nil {
 			return false, err
 		}
-		return strings.TrimSpace(text) == "DELETE", nil
+		ok := strings.TrimSpace(text) == "DELETE"
+		logger().Info("hard delete interactive confirmation received", "approved", ok, "count", count)
+		return ok, nil
 	}
 
 	if _, err := fmt.Fprintf(out, "Delete %d session(s) to trash? [y/N]: ", count); err != nil {
@@ -190,7 +231,9 @@ func interactiveConfirmDelete(cmd *cobra.Command, count int, hard bool) (bool, e
 		return false, err
 	}
 	v := strings.ToLower(strings.TrimSpace(text))
-	return v == "y" || v == "yes", nil
+	ok := v == "y" || v == "yes"
+	logger().Info("delete interactive confirmation received", "approved", ok, "count", count, "mode", "soft")
+	return ok, nil
 }
 
 func isInteractiveReader(r io.Reader) bool {
