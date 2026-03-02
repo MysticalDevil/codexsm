@@ -3,7 +3,9 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -271,7 +273,7 @@ func TestDelete_RealSoftDeleteMovesToTrash(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("delete execute: %v", err)
 	}
-	if _, err := os.Stat(src); !os.IsNotExist(err) {
+	if _, err := os.Stat(src); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("source should be moved; stat err=%v", err)
 	}
 	dst := filepath.Join(trashRoot, "sessions", "2026", "03", "02", filename)
@@ -308,7 +310,7 @@ func TestDelete_RealHardDeleteRemovesFile(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("delete execute: %v", err)
 	}
-	if _, err := os.Stat(src); !os.IsNotExist(err) {
+	if _, err := os.Stat(src); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("source should be deleted; stat err=%v", err)
 	}
 }
@@ -365,6 +367,102 @@ func TestDelete_RequiresSelector(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "at least one selector") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDelete_RealDeleteShowsPreview(t *testing.T) {
+	root := t.TempDir()
+	trashRoot := filepath.Join(t.TempDir(), "trash")
+	logFile := filepath.Join(t.TempDir(), "actions.log")
+	id := "88888888-1111-2222-3333-444444444444"
+	createSessionFile(t, root, "2026/03/02/rollout-preview.jsonl", id)
+
+	cmd := NewRootCmd()
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{
+		"delete",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--id", id,
+		"--dry-run=false",
+		"--confirm",
+		"--interactive-confirm=false",
+		"--yes",
+		"--log-file", logFile,
+		"--preview-limit", "1",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("delete execute: %v", err)
+	}
+	errOut := stderr.String()
+	if !strings.Contains(errOut, "preview action=soft-delete matched=1") {
+		t.Fatalf("expected preview output, got: %q", errOut)
+	}
+}
+
+func TestRestore_DryRunDoesNotMoveFile(t *testing.T) {
+	root := t.TempDir()
+	trashRoot := filepath.Join(t.TempDir(), "trash")
+	logFile := filepath.Join(t.TempDir(), "actions.log")
+	id := "99990000-1111-2222-3333-444444444444"
+	trashed := createSessionFile(t, filepath.Join(trashRoot, "sessions"), "2026/03/02/rollout-r1.jsonl", id)
+
+	cmd := NewRootCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{
+		"restore",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--id", id,
+		"--dry-run",
+		"--log-file", logFile,
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("restore execute: %v", err)
+	}
+	if _, err := os.Stat(trashed); err != nil {
+		t.Fatalf("trashed file should remain in dry-run: %v", err)
+	}
+	dst := filepath.Join(root, "2026", "03", "02", "rollout-r1.jsonl")
+	if _, err := os.Stat(dst); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("destination should not exist in dry-run: %v", err)
+	}
+}
+
+func TestRestore_RealMovesFileBack(t *testing.T) {
+	root := t.TempDir()
+	trashRoot := filepath.Join(t.TempDir(), "trash")
+	logFile := filepath.Join(t.TempDir(), "actions.log")
+	id := "99990000-1111-2222-3333-aaaaaaaaaaaa"
+	trashed := createSessionFile(t, filepath.Join(trashRoot, "sessions"), "2026/03/02/rollout-r2.jsonl", id)
+
+	cmd := NewRootCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{
+		"restore",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--id", id,
+		"--dry-run=false",
+		"--confirm",
+		"--interactive-confirm=false",
+		"--yes",
+		"--log-file", logFile,
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("restore execute: %v", err)
+	}
+	if _, err := os.Stat(trashed); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("trashed file should be moved out: %v", err)
+	}
+	dst := filepath.Join(root, "2026", "03", "02", "rollout-r2.jsonl")
+	if _, err := os.Stat(dst); err != nil {
+		t.Fatalf("destination should exist after restore: %v", err)
 	}
 }
 

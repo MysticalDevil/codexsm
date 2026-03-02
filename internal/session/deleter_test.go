@@ -1,6 +1,8 @@
 package session
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -50,7 +52,7 @@ func TestDeleteSessionsSoftDelete(t *testing.T) {
 	if sum.Succeeded != 1 || sum.Failed != 0 {
 		t.Fatalf("unexpected summary: %+v", sum)
 	}
-	if _, err := os.Stat(src); !os.IsNotExist(err) {
+	if _, err := os.Stat(src); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("source should be moved, stat err=%v", err)
 	}
 	if len(sum.Results) != 1 || sum.Results[0].Destination == "" {
