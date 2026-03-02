@@ -21,3 +21,6 @@ coverage.out
 .vscode/
 *.swp
 *.tmp
+
+# Local planning docs
+TARGET.md
