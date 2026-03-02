@@ -91,6 +91,43 @@ func TestList_FormatCSVAndTSV(t *testing.T) {
 	}
 }
 
+func TestList_NoHeaderAndColumn(t *testing.T) {
+	root := t.TempDir()
+	id := "88888888-8888-8888-8888-888888888888"
+	path := filepath.Join(root, "2026", "03", "02", "rollout-columns.jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	meta := `{"type":"session_meta","payload":{"id":"` + id + `","timestamp":"2026-03-02T09:44:00.024Z"}}` + "\n"
+	if err := os.WriteFile(path, []byte(meta), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewRootCmd()
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{
+		"list",
+		"--sessions-root", root,
+		"--format", "csv",
+		"--no-header",
+		"--column", "session_id,health",
+		"--limit", "1",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+	out := strings.TrimSpace(stdout.String())
+	if strings.Contains(out, "session_id,health") {
+		t.Fatalf("unexpected header in output: %q", out)
+	}
+	if !strings.Contains(out, id+",ok") {
+		t.Fatalf("unexpected row output: %q", out)
+	}
+}
+
 func TestDelete_DryRunWritesAuditAndKeepsFile(t *testing.T) {
 	root := t.TempDir()
 	logFile := filepath.Join(t.TempDir(), "actions.log")

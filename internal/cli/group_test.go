@@ -44,7 +44,7 @@ func TestGroupByHealthJSON(t *testing.T) {
 	}
 }
 
-func TestGroup_FormatCSVAndTSV(t *testing.T) {
+func TestGroupFormatCSVAndTSV(t *testing.T) {
 	root := t.TempDir()
 	mustWriteSession(t, root, "c", "{\"type\":\"session_meta\",\"payload\":{\"id\":\"c\",\"timestamp\":\"2026-03-02T09:44:00.024Z\"}}\n", time.Now())
 
@@ -74,7 +74,7 @@ func TestGroup_FormatCSVAndTSV(t *testing.T) {
 	}
 }
 
-func TestGroup_SortAndLimit(t *testing.T) {
+func TestGroupSortAndLimit(t *testing.T) {
 	root := t.TempDir()
 	base := time.Date(2026, 3, 2, 18, 0, 0, 0, time.Local)
 	mustWriteSession(t, root, "d1", "{\"type\":\"session_meta\",\"payload\":{\"id\":\"d1\",\"timestamp\":\"2026-03-02T09:44:00.024Z\"}}\n", base)
@@ -103,7 +103,7 @@ func TestGroup_SortAndLimit(t *testing.T) {
 	}
 }
 
-func TestGroup_InvalidSortReturnsError(t *testing.T) {
+func TestGroupInvalidSortReturnsError(t *testing.T) {
 	root := t.TempDir()
 	mustWriteSession(t, root, "x", "{\"type\":\"session_meta\",\"payload\":{\"id\":\"x\",\"timestamp\":\"2026-03-02T09:44:00.024Z\"}}\n", time.Now())
 
