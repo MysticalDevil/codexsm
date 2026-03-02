@@ -35,7 +35,21 @@ make build
 Or:
 
 ```bash
-go build ./cmd/csm
+go build .
+```
+
+## Install
+
+Preferred (Go):
+
+```bash
+go install github.com/MysticalDevil/codex-sm@v0.1.0
+```
+
+With `mise`:
+
+```bash
+mise install go:github.com/MysticalDevil/codex-sm@v0.1.0
 ```
 
 ## Quick Start

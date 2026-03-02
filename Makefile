@@ -16,6 +16,6 @@ test:
 	$(GO) test ./...
 
 build:
-	$(GO) build ./cmd/csm
+	$(GO) build .
 
 check: fmt lint test build

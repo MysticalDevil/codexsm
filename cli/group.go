@@ -11,8 +11,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/MysticalDevil/codex-sm/internal/config"
-	"github.com/MysticalDevil/codex-sm/internal/session"
+	"github.com/MysticalDevil/codex-sm/config"
+	"github.com/MysticalDevil/codex-sm/session"
 
 	"github.com/spf13/cobra"
 )

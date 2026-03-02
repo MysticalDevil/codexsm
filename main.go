@@ -1,4 +1,3 @@
-// Package main provides the csm executable entrypoint.
 package main
 
 import (
@@ -6,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MysticalDevil/codex-sm/internal/cli"
+	"github.com/MysticalDevil/codex-sm/cli"
 )
 
 func main() {

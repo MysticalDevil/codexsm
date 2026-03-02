@@ -40,4 +40,4 @@ jobs:
         run: go test ./...
 
       - name: Build
-        run: go build ./cmd/csm
+        run: go build .
