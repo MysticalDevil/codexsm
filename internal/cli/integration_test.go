@@ -112,7 +112,7 @@ func TestDelete_RealDeleteRequiresConfirm(t *testing.T) {
 	cmd := NewRootCmd()
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
-	cmd.SetArgs([]string{"delete", "--sessions-root", root, "--id", id, "--dry-run=false", "--log-file", logFile})
+	cmd.SetArgs([]string{"delete", "--sessions-root", root, "--id", id, "--dry-run=false", "--interactive-confirm=false", "--log-file", logFile})
 
 	err := cmd.Execute()
 	if err == nil {
@@ -123,5 +123,43 @@ func TestDelete_RealDeleteRequiresConfirm(t *testing.T) {
 	}
 	if _, statErr := os.Stat(p); statErr != nil {
 		t.Fatalf("session file should remain when validation fails: %v", statErr)
+	}
+}
+
+func TestDelete_RealDeleteInteractiveConfirmDisabledNeedsYes(t *testing.T) {
+	root := t.TempDir()
+	logFile := filepath.Join(t.TempDir(), "actions.log")
+	p1 := filepath.Join(root, "2026", "03", "02", "rollout-2026-03-02T17-44-00-33333333-3333-3333-3333-333333333333.jsonl")
+	if err := os.MkdirAll(filepath.Dir(p1), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	meta := `{"type":"session_meta","payload":{"id":"33333333-3333-3333-3333-333333333333","timestamp":"2026-03-02T09:44:00.024Z"}}` + "\n"
+	if err := os.WriteFile(p1, []byte(meta), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p2 := filepath.Join(root, "2026", "03", "02", "rollout-2026-03-02T17-44-01-33333333-3333-3333-3333-aaaaaaaaaaaa.jsonl")
+	meta2 := `{"type":"session_meta","payload":{"id":"33333333-3333-3333-3333-aaaaaaaaaaaa","timestamp":"2026-03-02T09:45:00.024Z"}}` + "\n"
+	if err := os.WriteFile(p2, []byte(meta2), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewRootCmd()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetIn(bytes.NewBufferString(""))
+	cmd.SetArgs([]string{"delete", "--sessions-root", root, "--id-prefix", "33333333-3333-3333-3333", "--dry-run=false", "--confirm", "--interactive-confirm=false", "--log-file", logFile})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error when neither --yes nor interactive confirm is used")
+	}
+	if !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, statErr := os.Stat(p1); statErr != nil {
+		t.Fatalf("session file #1 should remain when validation fails: %v", statErr)
+	}
+	if _, statErr := os.Stat(p2); statErr != nil {
+		t.Fatalf("session file #2 should remain when validation fails: %v", statErr)
 	}
 }

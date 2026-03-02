@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -25,6 +29,7 @@ func newDeleteCmd() *cobra.Command {
 		confirm      bool
 		yes          bool
 		hard         bool
+		interactive  bool
 		maxBatch     int
 	)
 
@@ -56,6 +61,17 @@ func newDeleteCmd() *cobra.Command {
 				return err
 			}
 			candidates := session.FilterSessions(sessions, sel, time.Now())
+
+			if !dryRun && interactive && !yes && len(candidates) > 0 {
+				ok, err := interactiveConfirmDelete(cmd, len(candidates), hard)
+				if err != nil {
+					return WithExitCode(err, 1)
+				}
+				if !ok {
+					return WithExitCode(errors.New("delete aborted by user"), 1)
+				}
+				yes = true
+			}
 
 			opts := session.DeleteOptions{
 				DryRun:       dryRun,
@@ -112,8 +128,9 @@ func newDeleteCmd() *cobra.Command {
 	cmd.Flags().StringVar(&health, "health", "", "health filter: ok|corrupted|missing-meta")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", true, "simulate delete without changing files")
 	cmd.Flags().BoolVar(&confirm, "confirm", false, "required for real delete")
-	cmd.Flags().BoolVar(&yes, "yes", false, "required for batch real delete")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip interactive prompt and approve delete")
 	cmd.Flags().BoolVar(&hard, "hard", false, "hard delete (permanent)")
+	cmd.Flags().BoolVar(&interactive, "interactive-confirm", true, "prompt for interactive confirmation on real delete")
 	cmd.Flags().IntVar(&maxBatch, "max-batch", 50, "max sessions allowed for one real delete command")
 
 	return cmd
@@ -137,4 +154,46 @@ func printDeleteSummary(cmd *cobra.Command, s session.DeleteSummary) {
 		}
 		_, _ = fmt.Fprintf(out, "%s %s %s err=%s\n", r.Status, r.SessionID, r.Path, r.Error)
 	}
+}
+
+func interactiveConfirmDelete(cmd *cobra.Command, count int, hard bool) (bool, error) {
+	in := cmd.InOrStdin()
+	out := cmd.ErrOrStderr()
+	if !isInteractiveReader(in) {
+		return false, fmt.Errorf("interactive confirm requires a terminal stdin; use --yes to continue non-interactively")
+	}
+
+	reader := bufio.NewReader(in)
+	if hard {
+		if _, err := fmt.Fprintf(out, "Hard delete %d session(s). Type DELETE to continue: ", count); err != nil {
+			return false, err
+		}
+		text, err := reader.ReadString('\n')
+		if err != nil {
+			return false, err
+		}
+		return strings.TrimSpace(text) == "DELETE", nil
+	}
+
+	if _, err := fmt.Fprintf(out, "Delete %d session(s) to trash? [y/N]: ", count); err != nil {
+		return false, err
+	}
+	text, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+	v := strings.ToLower(strings.TrimSpace(text))
+	return v == "y" || v == "yes", nil
+}
+
+func isInteractiveReader(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	if !ok {
+		return false
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
 }
