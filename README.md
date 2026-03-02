@@ -7,19 +7,24 @@ It provides:
 - Session listing (`list`)
 - Session grouping (`group`)
 - Safe deletion (`delete`, dry-run by default)
+- Session restore from trash (`restore`, dry-run by default)
 
 ## Features
 
-- Safe by default: `delete` runs with `--dry-run=true`
-- Real deletion requires explicit intent: `--dry-run=false --confirm`
-- Default real deletion mode is soft delete (move to trash)
+- Safe by default:
+  - `delete` runs with `--dry-run=true`
+  - `restore` runs with `--dry-run=true`
+- Real operations require explicit intent:
+  - `--dry-run=false --confirm`
+- Default delete mode is soft delete (move to trash)
 - Optional hard delete with `--hard`
-- Interactive confirmation for real delete (enabled by default)
+- Interactive confirmation for real delete/restore (enabled by default)
 - Readable CLI output:
   - compact list view by default
   - detailed mode
   - pager mode
   - colored help/output
+  - `json/table/csv/tsv` formats
 
 ## Build
 
@@ -42,14 +47,17 @@ csm list
 # Detailed list view
 csm list --detailed
 
+# Custom columns, no header
+csm list --format csv --no-header --column session_id,health
+
 # Show all with pager
 csm list --limit 0 --pager
 
 # Group by day
 csm group --by day
 
-# Group by health
-csm group --by health
+# Group by health with sorting and limit
+csm group --by health --sort count --order desc --limit 5
 
 # Dry-run delete (default behavior)
 csm delete --id-prefix 019ca9
@@ -59,11 +67,17 @@ csm delete --id-prefix 019ca9 --dry-run=false --confirm
 
 # Real hard delete
 csm delete --id 019ca9c1-3df3-7551-b04b-b2a91c486755 --dry-run=false --confirm --hard
+
+# Dry-run restore from trash
+csm restore --id-prefix 019ca9
+
+# Real restore
+csm restore --id-prefix 019ca9 --dry-run=false --confirm
 ```
 
-## Delete Safety Model
+## Delete/Restore Safety Model
 
-`delete` targets are selected by flags (not positional args):
+`delete` and `restore` targets are selected by flags (not positional args):
 
 - `--id <session_id>`
 - `--id-prefix <prefix>`
@@ -74,8 +88,8 @@ Rules:
 
 - At least one selector is required
 - Dry-run is default
-- Real delete requires `--confirm`
-- Batch real delete requires approval (`--yes` or interactive confirm)
+- Real operation requires `--confirm`
+- Batch real operation requires approval (`--yes` or interactive confirm)
 
 ## Command Help
 
@@ -84,6 +98,7 @@ csm help
 csm help list
 csm help group
 csm help delete
+csm help restore
 ```
 
 ## Development
