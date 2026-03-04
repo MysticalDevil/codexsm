@@ -48,6 +48,9 @@ It provides:
 - Batch audit and rollback:
   - each delete/restore invocation writes a `batch_id` to action logs
   - rollback by batch: `restore --batch-id <batch_id>`
+  - `batch_id` is stored in the JSONL action log field `batch_id`
+  - default action log path: `~/.codex/codexsm/logs/actions.log`
+  - log path can be overridden by config `log_file` or command `--log-file`
 - Readable CLI output:
   - compact list view by default
   - `HEAD` with noise filtering
