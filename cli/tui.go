@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -63,12 +64,19 @@ const (
 	tokyoBlue      = "#7aa2f7"
 	tokyoCyan      = "#7dcfff"
 	tokyoMagenta   = "#bb9af7"
+	tokyoGreen     = "#9ece6a"
+	tokyoYellow    = "#e0af68"
+	tokyoOrange    = "#ff9e64"
+	tokyoTeal      = "#73daca"
+	tokyoRed       = "#f7768e"
 	tokyoComment   = "#565f89"
 	tokyoSelection = "#283457"
 
 	tuiMinWidth  = 100
 	tuiMinHeight = 24
 )
+
+var angleTagRe = regexp.MustCompile(`<[^>\n]{1,80}>`)
 
 func newTUICmd() *cobra.Command {
 	var (
@@ -346,7 +354,7 @@ func (m tuiModel) View() string {
 	} else {
 		rightTitleText += " *"
 	}
-	leftTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoCyan)).Render(leftTitleText)
+	leftTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoTeal)).Render(leftTitleText)
 	rightTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoCyan)).Render(rightTitleText)
 
 	leftLines := make([]string, 0, m.visibleRows()+1)
@@ -372,7 +380,7 @@ func (m tuiModel) View() string {
 			}
 		} else {
 			if item.kind == treeItemMonth {
-				line = lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoMagenta)).Render(line)
+				line = lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow)).Render(line)
 			}
 			line = "  " + line
 		}
@@ -400,7 +408,7 @@ func (m tuiModel) View() string {
 		}
 		scrollInfo := fmt.Sprintf(" scroll %d-%d/%d ", start+1, end, len(preview))
 		scrollStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment))
-		barStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoBlue))
+		barStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoTeal))
 		if m.focus == focusPreview {
 			scrollStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoCyan))
 			barStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoCyan))
@@ -409,11 +417,11 @@ func (m tuiModel) View() string {
 		previewLines = append(previewLines, barStyle.Render(" "+buildPreviewScrollBar(start, end, len(preview), max(10, previewTextWidth-2))))
 		previewLines = append(previewLines, preview[start:end]...)
 		h, v := m.detailRows(selected)
-		infoLines = append(infoLines, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoMagenta)).Render(h))
+		infoLines = append(infoLines, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoOrange)).Render(h))
 		infoLines = append(infoLines, lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoFg)).Render(v))
 	} else {
 		previewLines = append(previewLines, " Select a session node")
-		infoLines = append(infoLines, lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment)).Render("No session selected"))
+		infoLines = append(infoLines, lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoRed)).Render("No session selected"))
 	}
 
 	leftBorder := tokyoBlue
@@ -688,8 +696,22 @@ func (m *tuiModel) previewFor(path string, width, lines int) []string {
 				p = prefix
 				first = false
 			}
-			row := fmt.Sprintf(" %s %s", p, chunk)
-			out = append(out, truncateDisplay(row, width))
+			prefixCell := fmt.Sprintf(" %s ", p)
+			remaining := max(0, width-runewidth.StringWidth(prefixCell))
+			chunk = truncateDisplay(chunk, remaining)
+
+			prefixStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment))
+			switch p {
+			case "U":
+				prefixStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoCyan))
+			case "A":
+				prefixStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoBlue))
+			case "?":
+				prefixStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoMagenta))
+			}
+
+			row := prefixStyle.Render(prefixCell) + highlightAngleTags(chunk)
+			out = append(out, row)
 		}
 	}
 	if err := sc.Err(); err != nil {
@@ -860,6 +882,38 @@ func withEllipsis(v string, width int) string {
 		return v + "..."
 	}
 	return truncateDisplay(v, width-3) + "..."
+}
+
+func highlightAngleTags(v string) string {
+	if strings.TrimSpace(v) == "" {
+		return v
+	}
+	matches := angleTagRe.FindAllStringIndex(v, -1)
+	if len(matches) == 0 {
+		return v
+	}
+
+	strong := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoOrange))
+	soft := lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow))
+
+	var b strings.Builder
+	last := 0
+	for _, m := range matches {
+		if m[0] > last {
+			b.WriteString(v[last:m[0]])
+		}
+		tag := v[m[0]:m[1]]
+		if strings.Contains(tag, "abort") || strings.Contains(tag, "error") || strings.Contains(tag, "fail") {
+			b.WriteString(strong.Render(tag))
+		} else {
+			b.WriteString(soft.Render(tag))
+		}
+		last = m[1]
+	}
+	if last < len(v) {
+		b.WriteString(v[last:])
+	}
+	return b.String()
 }
 
 func (m *tuiModel) syncPreviewSelection() {
