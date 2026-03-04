@@ -120,6 +120,18 @@ func TestColorAndSelectorHelpers(t *testing.T) {
 	if _, err := parseHealth("bad"); err == nil {
 		t.Fatal("expected parseHealth error")
 	}
+	if got, err := parsePreviewMode("sample"); err != nil || got != previewSample {
+		t.Fatalf("parsePreviewMode(sample) got=%q err=%v", got, err)
+	}
+	if got, err := parsePreviewMode("full"); err != nil || got != previewFull {
+		t.Fatalf("parsePreviewMode(full) got=%q err=%v", got, err)
+	}
+	if got, err := parsePreviewMode("none"); err != nil || got != previewNone {
+		t.Fatalf("parsePreviewMode(none) got=%q err=%v", got, err)
+	}
+	if _, err := parsePreviewMode("bad"); err == nil {
+		t.Fatal("expected parsePreviewMode error")
+	}
 }
 
 func TestErrorAndLoggingHelpers(t *testing.T) {
@@ -165,7 +177,8 @@ func TestDeleteRestoreHelperPaths(t *testing.T) {
 		MatchedCount: 1,
 		Results:      []session.DeleteResult{{SessionID: "s1", Path: "/tmp/a", Status: "simulated"}},
 	})
-	printDeletePreview(cmd, []session.Session{{SessionID: "s1", Path: "/tmp/a", SizeBytes: 5}}, false, 1)
+	printDeletePreview(cmd, []session.Session{{SessionID: "s1", Path: "/tmp/a", SizeBytes: 5}}, false, previewSample, 1)
+	printRestorePreview(cmd, []session.Session{{SessionID: "s1", Path: "/tmp/a", SizeBytes: 5}}, previewSample, 1)
 	printRestoreSummary(cmd, restoreSummary{
 		Action:       "restore-dry-run",
 		Simulation:   true,

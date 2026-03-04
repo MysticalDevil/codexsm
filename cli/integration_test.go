@@ -496,8 +496,10 @@ func TestDelete_RealDeleteRequiresConfirm(t *testing.T) {
 	p := filepath.Join(workspace, "sessions", "2026", "03", "02", "rollout-delete-confirm.jsonl")
 
 	cmd := newIsolatedRootCmd(t, root)
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
 	cmd.SetArgs([]string{"delete", "--sessions-root", root, "--id", idDeleteNeed, "--dry-run=false", "--interactive-confirm=false", "--log-file", logFile})
 
 	err := cmd.Execute()
@@ -518,8 +520,10 @@ func TestDelete_RealDeleteInteractiveConfirmDisabledNeedsYes(t *testing.T) {
 	p2 := filepath.Join(workspace, "sessions", "2026", "03", "02", "rollout-delete-prefix-2.jsonl")
 
 	cmd := newIsolatedRootCmd(t, root)
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
 	cmd.SetIn(bytes.NewBufferString(""))
 	cmd.SetArgs([]string{"delete", "--sessions-root", root, "--id-prefix", "33333333-3333-3333-3333", "--dry-run=false", "--confirm", "--interactive-confirm=false", "--log-file", logFile})
 
@@ -581,8 +585,10 @@ func TestDelete_RealHardDeleteRemovesFile(t *testing.T) {
 	src := filepath.Join(workspace, "sessions", "2026", "03", "02", "rollout-delete-hard.jsonl")
 
 	cmd := newIsolatedRootCmd(t, root)
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
 	cmd.SetArgs([]string{
 		"delete",
 		"--sessions-root", root,
@@ -672,6 +678,7 @@ func TestDelete_RealDeleteShowsPreview(t *testing.T) {
 		"--interactive-confirm=false",
 		"--yes",
 		"--log-file", logFile,
+		"--preview", "sample",
 		"--preview-limit", "1",
 	})
 	if err := cmd.Execute(); err != nil {
@@ -680,6 +687,100 @@ func TestDelete_RealDeleteShowsPreview(t *testing.T) {
 	errOut := stderr.String()
 	if !strings.Contains(errOut, "preview action=soft-delete matched=1") {
 		t.Fatalf("expected preview output, got: %q", errOut)
+	}
+	if !strings.Contains(errOut, "mode=sample") {
+		t.Fatalf("expected sample mode output, got: %q", errOut)
+	}
+}
+
+func TestDelete_RealDeletePreviewNoneSuppressesOutput(t *testing.T) {
+	_, root, trashRoot, logFile := fixtureRoots(t)
+
+	cmd := newIsolatedRootCmd(t, root)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{
+		"delete",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--id", idPreview,
+		"--dry-run=false",
+		"--confirm",
+		"--interactive-confirm=false",
+		"--yes",
+		"--log-file", logFile,
+		"--preview", "none",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("delete execute: %v", err)
+	}
+	if strings.Contains(stderr.String(), "preview action=") {
+		t.Fatalf("expected no preview output, got: %q", stderr.String())
+	}
+}
+
+func TestDelete_RealDeletePreviewFullShowsAll(t *testing.T) {
+	_, root, trashRoot, logFile := fixtureRoots(t)
+
+	cmd := newIsolatedRootCmd(t, root)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{
+		"delete",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--id-prefix", "33333333-3333-3333-3333",
+		"--dry-run=false",
+		"--confirm",
+		"--interactive-confirm=false",
+		"--yes",
+		"--log-file", logFile,
+		"--preview", "full",
+		"--preview-limit", "1",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("delete execute: %v", err)
+	}
+	errOut := stderr.String()
+	if !strings.Contains(errOut, "mode=full") {
+		t.Fatalf("expected full mode output, got: %q", errOut)
+	}
+	if strings.Contains(errOut, "... and") {
+		t.Fatalf("full mode should not truncate preview, got: %q", errOut)
+	}
+	if !strings.Contains(errOut, shortID("33333333-3333-3333-3333-333333333333")) || !strings.Contains(errOut, shortID("33333333-3333-3333-3333-aaaaaaaaaaaa")) {
+		t.Fatalf("full mode should show all matched IDs, got: %q", errOut)
+	}
+}
+
+func TestDelete_InvalidPreviewMode(t *testing.T) {
+	_, root, trashRoot, logFile := fixtureRoots(t)
+
+	cmd := newIsolatedRootCmd(t, root)
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{
+		"delete",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--id", idPreview,
+		"--dry-run=false",
+		"--confirm",
+		"--yes",
+		"--interactive-confirm=false",
+		"--log-file", logFile,
+		"--preview", "bad",
+	})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected invalid preview mode error")
+	}
+	if !strings.Contains(err.Error(), "invalid --preview") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -715,8 +816,10 @@ func TestRestore_RealMovesFileBack(t *testing.T) {
 	trashed := filepath.Join(workspace, "trash", "sessions", "2026", "03", "02", "rollout-r2.jsonl")
 
 	cmd := newIsolatedRootCmd(t, root)
-	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetErr(&bytes.Buffer{})
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
 	cmd.SetArgs([]string{
 		"restore",
 		"--sessions-root", root,
@@ -727,9 +830,13 @@ func TestRestore_RealMovesFileBack(t *testing.T) {
 		"--interactive-confirm=false",
 		"--yes",
 		"--log-file", logFile,
+		"--preview", "sample",
 	})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("restore execute: %v", err)
+	}
+	if !strings.Contains(stderr.String(), "preview action=restore matched=1") {
+		t.Fatalf("expected restore preview output, got: %q", stderr.String())
 	}
 	if _, err := os.Stat(trashed); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("trashed file should be moved out: %v", err)
@@ -737,5 +844,33 @@ func TestRestore_RealMovesFileBack(t *testing.T) {
 	dst := filepath.Join(workspace, "sessions", "2026", "03", "02", "rollout-r2.jsonl")
 	if _, err := os.Stat(dst); err != nil {
 		t.Fatalf("destination should exist after restore: %v", err)
+	}
+}
+
+func TestRestore_RealPreviewNoneSuppressesOutput(t *testing.T) {
+	_, root, trashRoot, logFile := fixtureRoots(t)
+
+	cmd := newIsolatedRootCmd(t, root)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{
+		"restore",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--id", idRestoreR2,
+		"--dry-run=false",
+		"--confirm",
+		"--interactive-confirm=false",
+		"--yes",
+		"--log-file", logFile,
+		"--preview", "none",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("restore execute: %v", err)
+	}
+	if strings.Contains(stderr.String(), "preview action=") {
+		t.Fatalf("expected no restore preview output, got: %q", stderr.String())
 	}
 }
