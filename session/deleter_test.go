@@ -7,18 +7,19 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/MysticalDevil/codex-sm/internal/testsupport"
 )
 
 func TestDeleteSessionsDryRunNoSideEffects(t *testing.T) {
-	root := t.TempDir()
-	f := filepath.Join(root, "a.jsonl")
-	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
+	sessionsRoot := filepath.Join(workspace, "sessions")
+	trashRoot := filepath.Join(workspace, "trash")
+	f := filepath.Join(sessionsRoot, "2026", "03", "02", "rollout-delete-dry.jsonl")
 
-	candidates := []Session{{SessionID: "a", Path: f, SizeBytes: 1, UpdatedAt: time.Now()}}
-	sel := Selector{ID: "a"}
-	sum, err := DeleteSessions(candidates, sel, DeleteOptions{DryRun: true, SessionsRoot: root, TrashRoot: filepath.Join(root, "trash")})
+	candidates := []Session{{SessionID: "11111111-1111-1111-1111-111111111111", Path: f, SizeBytes: 1, UpdatedAt: time.Now()}}
+	sel := Selector{ID: "11111111-1111-1111-1111-111111111111"}
+	sum, err := DeleteSessions(candidates, sel, DeleteOptions{DryRun: true, SessionsRoot: sessionsRoot, TrashRoot: trashRoot})
 	if err != nil {
 		t.Fatalf("DeleteSessions dry-run: %v", err)
 	}
@@ -31,20 +32,13 @@ func TestDeleteSessionsDryRunNoSideEffects(t *testing.T) {
 }
 
 func TestDeleteSessionsSoftDelete(t *testing.T) {
-	root := t.TempDir()
-	sessionsRoot := filepath.Join(root, "sessions")
-	trashRoot := filepath.Join(root, "trash")
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
+	sessionsRoot := filepath.Join(workspace, "sessions")
+	trashRoot := filepath.Join(workspace, "trash")
+	src := filepath.Join(sessionsRoot, "2026", "03", "02", "rollout-delete-soft.jsonl")
 
-	src := filepath.Join(sessionsRoot, "2026", "03", "02", "a.jsonl")
-	if err := os.MkdirAll(filepath.Dir(src), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(src, []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	candidates := []Session{{SessionID: "a", Path: src, SizeBytes: 1, UpdatedAt: time.Now()}}
-	sel := Selector{ID: "a"}
+	candidates := []Session{{SessionID: "44444444-4444-4444-4444-444444444444", Path: src, SizeBytes: 1, UpdatedAt: time.Now()}}
+	sel := Selector{ID: "44444444-4444-4444-4444-444444444444"}
 	sum, err := DeleteSessions(candidates, sel, DeleteOptions{DryRun: false, Confirm: true, Yes: true, SessionsRoot: sessionsRoot, TrashRoot: trashRoot})
 	if err != nil {
 		t.Fatalf("DeleteSessions soft: %v", err)
