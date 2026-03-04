@@ -337,39 +337,12 @@ func writeWithPager(out io.Writer, text string, pager bool, pageSize int, hasHea
 		if _, err := fmt.Fprint(out, "\r\033[2K"); err != nil {
 			return err
 		}
-		c := strings.ToLower(strings.TrimSpace(choice))
-		switch c {
-		case "q", "quit":
-			break
-		case "g", "first", "home":
-			page = 0
-		case "a", "all":
-		case "b", "back", "p", "prev":
-			if page > 0 {
-				page--
-			}
-		case "", "j", "n", "next", " ":
-			if page < pages-1 {
-				page++
-			}
-		case "k":
-			if page > 0 {
-				page--
-			}
-		default:
-			// Keep compatibility for single-char uppercase G input.
-			if strings.TrimSpace(choice) == "G" {
-				page = pages - 1
-				break
-			}
-			if page < pages-1 {
-				page++
-			}
-		}
-		if c == "q" || c == "quit" {
+		nextPage, act := applyPagerChoice(page, pages, choice)
+		page = nextPage
+		if act == pagerActionQuit {
 			break
 		}
-		if c == "a" || c == "all" {
+		if act == pagerActionAll {
 			// Stream remaining rows continuously from the current position.
 			if _, err := fmt.Fprint(out, "\x1b[H\x1b[2J"); err != nil {
 				return err
@@ -400,6 +373,49 @@ func writeWithPager(out io.Writer, text string, pager bool, pageSize int, hasHea
 		}
 	}
 	return nil
+}
+
+type pagerAction int
+
+const (
+	pagerActionContinue pagerAction = iota
+	pagerActionQuit
+	pagerActionAll
+)
+
+func applyPagerChoice(page, pages int, rawChoice string) (int, pagerAction) {
+	if pages <= 0 {
+		return page, pagerActionQuit
+	}
+	last := pages - 1
+	clean := strings.TrimSpace(rawChoice)
+	if clean == "G" {
+		return last, pagerActionContinue
+	}
+	c := strings.ToLower(clean)
+	switch c {
+	case "q", "quit":
+		return page, pagerActionQuit
+	case "a", "all":
+		return page, pagerActionAll
+	case "g", "first", "home":
+		return 0, pagerActionContinue
+	case "b", "back", "p", "prev", "k":
+		if page > 0 {
+			return page - 1, pagerActionContinue
+		}
+		return 0, pagerActionContinue
+	case "", "j", "n", "next", " ":
+		if page < last {
+			return page + 1, pagerActionContinue
+		}
+		return last, pagerActionContinue
+	default:
+		if page < last {
+			return page + 1, pagerActionContinue
+		}
+		return last, pagerActionContinue
+	}
 }
 
 var ansiColorRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)

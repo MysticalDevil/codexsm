@@ -4,7 +4,7 @@ go := "go"
 gofumpt := if env_var_or_default("GOFUMPT", "") != "" {
   env_var("GOFUMPT")
 } else {
-  "~/.local/lib/go/bin/gofumpt"
+  "gofumpt"
 }
 goexperiment := "GOEXPERIMENT=jsonv2"
 

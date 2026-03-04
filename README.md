@@ -21,8 +21,11 @@ It provides:
 - Interactive confirmation for real delete/restore (enabled by default)
 - Readable CLI output:
   - compact list view by default
+  - `HEAD` with noise filtering
+  - `HOST` column from session cwd (`~` under home)
+  - customizable head width (`--head-width`)
   - detailed mode
-  - pager mode
+  - pager mode (Vim keys: `j/k/g/G`, plus `a/q`)
   - colored help/output
   - `json/table/csv/tsv` formats
 
