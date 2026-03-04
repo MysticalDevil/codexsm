@@ -83,6 +83,13 @@ func newDeleteCmd() *cobra.Command {
 			if !dryRun {
 				printDeletePreview(cmd, candidates, hard, mode, previewLimit)
 			}
+			batchID := ""
+			if len(candidates) > 0 {
+				batchID, err = audit.NewBatchID()
+				if err != nil {
+					return err
+				}
+			}
 
 			if !dryRun && interactive && !yes && len(candidates) > 0 {
 				ok, err := interactiveConfirmDelete(cmd, len(candidates), hard)
@@ -107,6 +114,7 @@ func newDeleteCmd() *cobra.Command {
 			summary, deleteErr := session.DeleteSessions(candidates, sel, opts)
 
 			rec := audit.ActionRecord{
+				BatchID:       batchID,
 				Timestamp:     time.Now().UTC(),
 				Action:        summary.Action,
 				Simulation:    summary.Simulation,
@@ -125,6 +133,9 @@ func newDeleteCmd() *cobra.Command {
 				lg.Error("failed to write action log", "error", logErr, "log_file", logFile)
 			}
 
+			if batchID != "" {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "batch_id=%s\n", batchID)
+			}
 			printDeleteSummary(cmd, summary)
 
 			if logErr != nil {

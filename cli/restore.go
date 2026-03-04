@@ -38,6 +38,7 @@ func newRestoreCmd() *cobra.Command {
 		hostContains string
 		pathContains string
 		headContains string
+		batchID      string
 		olderThan    string
 		health       string
 		dryRun       bool
@@ -57,6 +58,7 @@ func newRestoreCmd() *cobra.Command {
 			"Use `--dry-run=false --confirm` for real restore.",
 		Example: "  codexsm restore --id <session_id>\n" +
 			"  codexsm restore --id-prefix 019ca9 --dry-run=false --confirm\n" +
+			"  codexsm restore --batch-id <batch_id> --dry-run=false --confirm --yes\n" +
 			"  codexsm restore --path-contains /trash/sessions/2026/03/02 --head-contains fixture --dry-run=false --confirm --yes\n" +
 			"  codexsm restore --older-than 30d --dry-run=false --confirm --yes",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -83,8 +85,9 @@ func newRestoreCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !sel.HasAnyFilter() {
-				return WithExitCode(errors.New("restore requires at least one selector (--id/--id-prefix/--host-contains/--path-contains/--head-contains/--older-than/--health)"), 1)
+			batchID = strings.TrimSpace(batchID)
+			if batchID != "" && sel.HasAnyFilter() {
+				return WithExitCode(errors.New("restore --batch-id cannot be combined with selector flags"), 1)
 			}
 
 			trashSessionsRoot := filepath.Join(trashRoot, "sessions")
@@ -92,10 +95,40 @@ func newRestoreCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			candidates := session.FilterSessions(sessions, sel, time.Now())
+			candidates := make([]session.Session, 0, len(sessions))
+			if batchID != "" {
+				ids, err := audit.SessionIDsForBatchRollback(logFile, batchID)
+				if err != nil {
+					return WithExitCode(err, 1)
+				}
+				idSet := make(map[string]struct{}, len(ids))
+				for _, id := range ids {
+					idSet[id] = struct{}{}
+				}
+				for _, s := range sessions {
+					if _, ok := idSet[s.SessionID]; ok {
+						candidates = append(candidates, s)
+					}
+				}
+				if len(candidates) == 0 {
+					return WithExitCode(fmt.Errorf("batch id %q has no sessions currently restorable from trash", batchID), 1)
+				}
+			} else {
+				if !sel.HasAnyFilter() {
+					return WithExitCode(errors.New("restore requires at least one selector (--id/--id-prefix/--host-contains/--path-contains/--head-contains/--older-than/--health or --batch-id)"), 1)
+				}
+				candidates = session.FilterSessions(sessions, sel, time.Now())
+			}
 			lg.Info("matched restore candidates", "count", len(candidates), "dry_run", dryRun)
 			if !dryRun {
 				printRestorePreview(cmd, candidates, mode, previewLimit)
+			}
+			opBatchID := ""
+			if len(candidates) > 0 {
+				opBatchID, err = audit.NewBatchID()
+				if err != nil {
+					return err
+				}
 			}
 
 			if !dryRun && interactive && !yes && len(candidates) > 0 {
@@ -110,15 +143,17 @@ func newRestoreCmd() *cobra.Command {
 			}
 
 			summary, runErr := restoreSessions(candidates, sel, restoreOptions{
-				DryRun:            dryRun,
-				Confirm:           confirm,
-				Yes:               yes,
-				MaxBatch:          maxBatch,
-				SessionsRoot:      sessionsRoot,
-				TrashSessionsRoot: trashSessionsRoot,
+				DryRun:             dryRun,
+				Confirm:            confirm,
+				Yes:                yes,
+				AllowEmptySelector: batchID != "",
+				MaxBatch:           maxBatch,
+				SessionsRoot:       sessionsRoot,
+				TrashSessionsRoot:  trashSessionsRoot,
 			})
 
 			rec := audit.ActionRecord{
+				BatchID:       opBatchID,
 				Timestamp:     time.Now().UTC(),
 				Action:        summary.Action,
 				Simulation:    summary.Simulation,
@@ -137,6 +172,12 @@ func newRestoreCmd() *cobra.Command {
 				lg.Error("failed to write action log", "error", logErr, "log_file", logFile)
 			}
 
+			if batchID != "" {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "rollback_from_batch_id=%s\n", batchID)
+			}
+			if opBatchID != "" {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "batch_id=%s\n", opBatchID)
+			}
 			printRestoreSummary(cmd, summary)
 
 			if logErr != nil {
@@ -163,6 +204,7 @@ func newRestoreCmd() *cobra.Command {
 	cmd.Flags().StringVar(&logFile, "log-file", "", "action log file (jsonl)")
 	cmd.Flags().StringVarP(&id, "id", "i", "", "exact session id")
 	cmd.Flags().StringVarP(&idPrefix, "id-prefix", "p", "", "session id prefix")
+	cmd.Flags().StringVarP(&batchID, "batch-id", "B", "", "restore all sessions from a soft-delete batch id")
 	cmd.Flags().StringVar(&hostContains, "host-contains", "", "case-insensitive substring match against host path")
 	cmd.Flags().StringVar(&pathContains, "path-contains", "", "case-insensitive substring match against session file path")
 	cmd.Flags().StringVar(&headContains, "head-contains", "", "case-insensitive substring match against preview head text")
@@ -180,12 +222,13 @@ func newRestoreCmd() *cobra.Command {
 }
 
 type restoreOptions struct {
-	DryRun            bool
-	Confirm           bool
-	Yes               bool
-	MaxBatch          int
-	SessionsRoot      string
-	TrashSessionsRoot string
+	DryRun             bool
+	Confirm            bool
+	Yes                bool
+	AllowEmptySelector bool
+	MaxBatch           int
+	SessionsRoot       string
+	TrashSessionsRoot  string
 }
 
 func restoreSessions(candidates []session.Session, sel session.Selector, opts restoreOptions) (restoreSummary, error) {
@@ -195,8 +238,8 @@ func restoreSessions(candidates []session.Session, sel session.Selector, opts re
 		MatchedCount: len(candidates),
 		Results:      make([]session.DeleteResult, 0, len(candidates)),
 	}
-	if !sel.HasAnyFilter() {
-		summary.ErrorSummary = "restore requires at least one selector (--id/--id-prefix/--host-contains/--path-contains/--head-contains/--older-than/--health)"
+	if !sel.HasAnyFilter() && !opts.AllowEmptySelector {
+		summary.ErrorSummary = "restore requires at least one selector (--id/--id-prefix/--host-contains/--path-contains/--head-contains/--older-than/--health or --batch-id)"
 		return summary, errors.New(summary.ErrorSummary)
 	}
 	if opts.MaxBatch <= 0 {
