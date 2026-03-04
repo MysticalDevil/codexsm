@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -578,6 +579,22 @@ func TestDelete_RealSoftDeleteMovesToTrash(t *testing.T) {
 	if !strings.Contains(out, "action=soft-delete") || !strings.Contains(out, "succeeded=1") {
 		t.Fatalf("unexpected output: %s", out)
 	}
+	if !strings.Contains(out, "batch_id=") {
+		t.Fatalf("expected batch_id in output: %s", out)
+	}
+
+	data, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	line := strings.TrimSpace(string(data))
+	var rec map[string]any
+	if err := json.Unmarshal([]byte(line), &rec); err != nil {
+		t.Fatalf("invalid audit json: %v", err)
+	}
+	if strings.TrimSpace(fmt.Sprint(rec["batch_id"])) == "" {
+		t.Fatalf("expected batch_id in audit record: %#v", rec)
+	}
 }
 
 func TestDelete_RealHardDeleteRemovesFile(t *testing.T) {
@@ -844,6 +861,129 @@ func TestRestore_RealMovesFileBack(t *testing.T) {
 	dst := filepath.Join(workspace, "sessions", "2026", "03", "02", "rollout-r2.jsonl")
 	if _, err := os.Stat(dst); err != nil {
 		t.Fatalf("destination should exist after restore: %v", err)
+	}
+}
+
+func TestRestore_ByBatchIDRollsBackSoftDelete(t *testing.T) {
+	workspace, root, trashRoot, logFile := fixtureRoots(t)
+	filename := "rollout-delete-soft.jsonl"
+	src := filepath.Join(workspace, "sessions", "2026", "03", "02", filename)
+	trashed := filepath.Join(trashRoot, "sessions", "2026", "03", "02", filename)
+
+	delCmd := newIsolatedRootCmd(t, root)
+	delCmd.SetOut(&bytes.Buffer{})
+	delCmd.SetErr(&bytes.Buffer{})
+	delCmd.SetArgs([]string{
+		"delete",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--log-file", logFile,
+		"--id", idSoftDelete,
+		"--dry-run=false",
+		"--confirm",
+		"--interactive-confirm=false",
+		"--yes",
+	})
+	if err := delCmd.Execute(); err != nil {
+		t.Fatalf("delete execute: %v", err)
+	}
+	if _, err := os.Stat(trashed); err != nil {
+		t.Fatalf("expected trashed file before rollback: %v", err)
+	}
+
+	logData, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
+	if len(lines) == 0 {
+		t.Fatal("expected at least one log line")
+	}
+	var rec map[string]any
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &rec); err != nil {
+		t.Fatalf("invalid audit json: %v", err)
+	}
+	batchID := strings.TrimSpace(fmt.Sprint(rec["batch_id"]))
+	if batchID == "" {
+		t.Fatalf("missing batch_id in delete log: %#v", rec)
+	}
+
+	restoreCmd := newIsolatedRootCmd(t, root)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	restoreCmd.SetOut(stdout)
+	restoreCmd.SetErr(stderr)
+	restoreCmd.SetArgs([]string{
+		"restore",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--log-file", logFile,
+		"--batch-id", batchID,
+		"--dry-run=false",
+		"--confirm",
+		"--interactive-confirm=false",
+		"--yes",
+		"--preview", "none",
+	})
+	if err := restoreCmd.Execute(); err != nil {
+		t.Fatalf("restore execute: %v", err)
+	}
+	if _, err := os.Stat(src); err != nil {
+		t.Fatalf("expected restored file at source path: %v", err)
+	}
+	if _, err := os.Stat(trashed); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("trashed file should be removed after rollback: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "rollback_from_batch_id="+batchID) {
+		t.Fatalf("expected rollback marker in output: %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "batch_id=") {
+		t.Fatalf("expected new restore batch_id in output: %q", stdout.String())
+	}
+}
+
+func TestRestore_BatchIDNotFound(t *testing.T) {
+	_, root, trashRoot, logFile := fixtureRoots(t)
+
+	cmd := newIsolatedRootCmd(t, root)
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{
+		"restore",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--log-file", logFile,
+		"--batch-id", "b-not-found",
+	})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected missing batch_id error")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRestore_BatchIDConflictsWithSelectors(t *testing.T) {
+	_, root, trashRoot, logFile := fixtureRoots(t)
+
+	cmd := newIsolatedRootCmd(t, root)
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{
+		"restore",
+		"--sessions-root", root,
+		"--trash-root", trashRoot,
+		"--log-file", logFile,
+		"--batch-id", "b-abc",
+		"--id", idRestoreR2,
+	})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected batch-id selector conflict")
+	}
+	if !strings.Contains(err.Error(), "cannot be combined") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
