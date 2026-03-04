@@ -138,13 +138,13 @@ just build
 Or:
 
 ```bash
-GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.6" -o codexsm .
+GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.7" -o codexsm .
 ```
 
 Default local build version is `dev`. Set `VERSION` for release builds:
 
 ```bash
-VERSION=0.1.6 just build
+VERSION=0.1.7 just build
 ```
 
 ## Install
@@ -152,13 +152,13 @@ VERSION=0.1.6 just build
 Preferred (Go):
 
 ```bash
-GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.1.6
+GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.1.7
 ```
 
 With `mise`:
 
 ```bash
-GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.1.6
+GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.1.7
 ```
 
 Note:
