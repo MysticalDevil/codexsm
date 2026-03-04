@@ -197,6 +197,33 @@ func TestList_HeadWidth(t *testing.T) {
 	}
 }
 
+func TestList_SortAndOrder(t *testing.T) {
+	_, root, _, _ := fixtureRoots(t)
+
+	cmd := newIsolatedRootCmd(t, root)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{
+		"list",
+		"--sessions-root", root,
+		"--format", "csv",
+		"--column", "session_id",
+		"--id-prefix", "00000000-0000-0000-0000-0000000000",
+		"--sort", "session_id",
+		"--order", "asc",
+		"--limit", "1",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+	out := strings.TrimSpace(stdout.String())
+	if !strings.Contains(out, "00000000-0000-0000-0000-000000000000") {
+		t.Fatalf("expected ascending first id, got: %q", out)
+	}
+}
+
 func TestList_UsesFixtureDefaultSessionsRoot(t *testing.T) {
 	_, root, _, _ := fixtureRoots(t)
 

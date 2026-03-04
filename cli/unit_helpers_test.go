@@ -261,3 +261,52 @@ func TestAdditionalListAndResolveCoverage(t *testing.T) {
 		t.Fatalf("resolveOrDefault fallback got=%q err=%v", got, err)
 	}
 }
+
+func TestSortSessions(t *testing.T) {
+	sessions := []session.Session{
+		{
+			SessionID: "b",
+			UpdatedAt: time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC),
+			CreatedAt: time.Date(2026, 3, 2, 9, 0, 0, 0, time.UTC),
+			SizeBytes: 20,
+			Health:    session.HealthCorrupted,
+			Path:      "/tmp/b.jsonl",
+		},
+		{
+			SessionID: "a",
+			UpdatedAt: time.Date(2026, 3, 2, 11, 0, 0, 0, time.UTC),
+			CreatedAt: time.Date(2026, 3, 2, 8, 0, 0, 0, time.UTC),
+			SizeBytes: 10,
+			Health:    session.HealthOK,
+			Path:      "/tmp/a.jsonl",
+		},
+	}
+
+	if err := sortSessions(sessions, "size", "asc"); err != nil {
+		t.Fatalf("sortSessions size asc: %v", err)
+	}
+	if sessions[0].SessionID != "a" {
+		t.Fatalf("unexpected size asc order: %+v", sessions)
+	}
+
+	if err := sortSessions(sessions, "health", "asc"); err != nil {
+		t.Fatalf("sortSessions health asc: %v", err)
+	}
+	if sessions[0].Health != session.HealthOK {
+		t.Fatalf("unexpected health asc order: %+v", sessions)
+	}
+
+	if err := sortSessions(sessions, "updated_at", "desc"); err != nil {
+		t.Fatalf("sortSessions updated_at desc: %v", err)
+	}
+	if sessions[0].UpdatedAt.Before(sessions[1].UpdatedAt) {
+		t.Fatalf("unexpected updated_at desc order: %+v", sessions)
+	}
+
+	if err := sortSessions(sessions, "invalid", "asc"); err == nil {
+		t.Fatal("expected invalid sort error")
+	}
+	if err := sortSessions(sessions, "size", "invalid"); err == nil {
+		t.Fatal("expected invalid order error")
+	}
+}
