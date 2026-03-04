@@ -26,6 +26,7 @@ func NewRootCmd() *cobra.Command {
 			"Use `csm help <command>` to view details for a subcommand.\n" +
 			"Examples: `csm help delete`, `csm help list`, `csm help group`, `csm help version`.",
 		Example: "  csm list\n" +
+			"  csm tui\n" +
 			"  csm group --by day\n" +
 			"  csm delete --id <session_id>\n" +
 			"  csm version --short\n" +
@@ -44,6 +45,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(newGroupCmd())
 	cmd.AddCommand(newDeleteCmd())
 	cmd.AddCommand(newRestoreCmd())
+	cmd.AddCommand(newTUICmd())
 	cmd.AddCommand(newVersionCmd())
 	applyHelpStyles(cmd)
 	return cmd

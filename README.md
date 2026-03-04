@@ -12,6 +12,7 @@ It provides:
 
 - Session listing (`list`)
 - Session grouping (`group`)
+- Optional terminal UI (`tui`)
 - Safe deletion (`delete`, dry-run by default)
 - Session restore from trash (`restore`, dry-run by default)
 
@@ -34,6 +35,10 @@ It provides:
   - pager mode (Vim keys: `j/k/g/G`, plus `a/q`)
   - colored help/output
   - `json/table/csv/tsv` formats
+- Optional TUI mode:
+  - keyboard navigation (`j/k/g/G`)
+  - selected session detail view
+  - safe dry-run delete preview (`d`)
 
 ## Build
 
@@ -87,6 +92,9 @@ alias csm='codex-sm'
 ```bash
 # List recent sessions (default limit: 10)
 codex-sm list
+
+# Launch interactive TUI
+codex-sm tui
 
 # Detailed list view
 codex-sm list --detailed
