@@ -16,9 +16,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/MysticalDevil/codex-sm/config"
-	"github.com/MysticalDevil/codex-sm/session"
-	"github.com/MysticalDevil/codex-sm/util"
+	"github.com/MysticalDevil/codexsm/config"
+	"github.com/MysticalDevil/codexsm/session"
+	"github.com/MysticalDevil/codexsm/util"
 
 	"github.com/spf13/cobra"
 )
@@ -60,13 +60,13 @@ func newListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List Codex sessions",
-		Example: "  codex-sm list\n" +
-			"  codex-sm list --detailed\n" +
-			"  codex-sm list --head-width 48\n" +
-			"  codex-sm list --limit 0 --pager\n" +
-			"  codex-sm list --sort size --order asc --limit 20\n" +
-			"  codex-sm list --id-prefix 019ca9 --format json\n" +
-			"  codex-sm list --format csv --column session_id,updated_at,size",
+		Example: "  codexsm list\n" +
+			"  codexsm list --detailed\n" +
+			"  codexsm list --head-width 48\n" +
+			"  codexsm list --limit 0 --pager\n" +
+			"  codexsm list --sort size --order asc --limit 20\n" +
+			"  codexsm list --id-prefix 019ca9 --format json\n" +
+			"  codexsm list --format csv --column session_id,updated_at,size",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(sessionsRoot) == "" {
 				v, err := runtimeSessionsRoot()

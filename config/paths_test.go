@@ -67,7 +67,7 @@ func TestDefaultPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultLogFile: %v", err)
 	}
-	if logFile != "/tmp/home-sim/.codex/codex-sm/logs/actions.log" {
+	if logFile != "/tmp/home-sim/.codex/codexsm/logs/actions.log" {
 		t.Fatalf("unexpected log file: %q", logFile)
 	}
 }

@@ -45,7 +45,7 @@ func DefaultTrashRoot() (string, error) {
 
 // DefaultLogFile returns the default action log path.
 func DefaultLogFile() (string, error) {
-	return ResolvePath("~/.codex/codex-sm/logs/actions.log")
+	return ResolvePath("~/.codex/codexsm/logs/actions.log")
 }
 
 // EnsureDirForFile creates parent directories for the given file path.

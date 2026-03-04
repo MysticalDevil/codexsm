@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/MysticalDevil/codex-sm/config"
+	"github.com/MysticalDevil/codexsm/config"
 	"github.com/spf13/cobra"
 )
 
@@ -32,10 +32,10 @@ func newDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Run local environment and configuration checks",
-		Long: "Run local checks for codex-sm runtime prerequisites.\n\n" +
+		Long: "Run local checks for codexsm runtime prerequisites.\n\n" +
 			"This command validates config and storage paths.",
-		Example: "  codex-sm doctor\n" +
-			"  codex-sm doctor --strict",
+		Example: "  codexsm doctor\n" +
+			"  codexsm doctor --strict",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			checks := runDoctorChecks()
 			out := renderDoctorChecks(checks, shouldUseColor("auto", cmd.OutOrStdout()))
@@ -141,7 +141,7 @@ func checkLogFile(path string, pathErr error) doctorCheck {
 }
 
 func isWritableDir(path string) (bool, string) {
-	f, err := os.CreateTemp(path, ".codex-sm-doctor-*")
+	f, err := os.CreateTemp(path, ".codexsm-doctor-*")
 	if err != nil {
 		return false, fmt.Sprintf("not writable: %s (%v)", path, err)
 	}

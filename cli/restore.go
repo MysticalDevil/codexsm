@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MysticalDevil/codex-sm/audit"
-	"github.com/MysticalDevil/codex-sm/session"
+	"github.com/MysticalDevil/codexsm/audit"
+	"github.com/MysticalDevil/codexsm/session"
 
 	"github.com/spf13/cobra"
 )
@@ -50,9 +50,9 @@ func newRestoreCmd() *cobra.Command {
 		Long: "Restore sessions that were previously soft-deleted to trash.\n\n" +
 			"By default this command runs in dry-run mode and does not modify files.\n" +
 			"Use `--dry-run=false --confirm` for real restore.",
-		Example: "  codex-sm restore --id <session_id>\n" +
-			"  codex-sm restore --id-prefix 019ca9 --dry-run=false --confirm\n" +
-			"  codex-sm restore --older-than 30d --dry-run=false --confirm --yes",
+		Example: "  codexsm restore --id <session_id>\n" +
+			"  codexsm restore --id-prefix 019ca9 --dry-run=false --confirm\n" +
+			"  codexsm restore --older-than 30d --dry-run=false --confirm --yes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lg := logger().With("command", "restore")
 			var err error

@@ -1,4 +1,4 @@
-module github.com/MysticalDevil/codex-sm
+module github.com/MysticalDevil/codexsm
 
 go 1.26
 

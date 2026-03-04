@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MysticalDevil/codex-sm/audit"
-	"github.com/MysticalDevil/codex-sm/session"
+	"github.com/MysticalDevil/codexsm/audit"
+	"github.com/MysticalDevil/codexsm/session"
 )
 
 func (m *tuiModel) runDryRunPreview() {

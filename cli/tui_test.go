@@ -12,8 +12,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mattn/go-runewidth"
 
-	"github.com/MysticalDevil/codex-sm/internal/testsupport"
-	"github.com/MysticalDevil/codex-sm/session"
+	"github.com/MysticalDevil/codexsm/internal/testsupport"
+	"github.com/MysticalDevil/codexsm/session"
 )
 
 var ansiSeqRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)

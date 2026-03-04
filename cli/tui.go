@@ -9,8 +9,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
-	"github.com/MysticalDevil/codex-sm/config"
-	"github.com/MysticalDevil/codex-sm/session"
+	"github.com/MysticalDevil/codexsm/config"
+	"github.com/MysticalDevil/codexsm/session"
 )
 
 type treeItemKind int

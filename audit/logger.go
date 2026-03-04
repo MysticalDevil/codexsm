@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/MysticalDevil/codex-sm/config"
-	"github.com/MysticalDevil/codex-sm/session"
+	"github.com/MysticalDevil/codexsm/config"
+	"github.com/MysticalDevil/codexsm/session"
 )
 
 // SessionRef records a stable pointer to a session target for audit.

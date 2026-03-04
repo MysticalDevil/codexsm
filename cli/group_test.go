@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MysticalDevil/codex-sm/internal/testsupport"
+	"github.com/MysticalDevil/codexsm/internal/testsupport"
 )
 
 const groupFixtureName = "rich"

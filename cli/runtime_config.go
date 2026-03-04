@@ -3,7 +3,7 @@ package cli
 import (
 	"strings"
 
-	"github.com/MysticalDevil/codex-sm/config"
+	"github.com/MysticalDevil/codexsm/config"
 )
 
 var runtimeConfig config.AppConfig

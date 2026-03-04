@@ -18,7 +18,7 @@ func TestVersionCommand(t *testing.T) {
 		t.Fatalf("version execute: %v", err)
 	}
 	out := stdout.String()
-	if !strings.Contains(out, "codex-sm "+Version) {
+	if !strings.Contains(out, "codexsm "+Version) {
 		t.Fatalf("unexpected version output: %q", out)
 	}
 }

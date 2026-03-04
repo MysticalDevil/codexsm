@@ -17,7 +17,7 @@ func newVersionCmd() *cobra.Command {
 				fmt.Fprintln(cmd.OutOrStdout(), Version)
 				return
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "codex-sm %s\n", Version)
+			fmt.Fprintf(cmd.OutOrStdout(), "codexsm %s\n", Version)
 		},
 	}
 	cmd.Flags().BoolVar(&short, "short", false, "print version only")

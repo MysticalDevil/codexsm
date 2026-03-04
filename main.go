@@ -7,7 +7,7 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/MysticalDevil/codex-sm/cli"
+	"github.com/MysticalDevil/codexsm/cli"
 )
 
 // version is injected at build time via -ldflags.

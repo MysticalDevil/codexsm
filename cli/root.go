@@ -1,4 +1,4 @@
-// Package cli wires codex-sm commands to the internal session and audit services.
+// Package cli wires codexsm commands to the internal session and audit services.
 package cli
 
 import (
@@ -11,7 +11,7 @@ import (
 // Version is the application version and is usually injected at build time.
 var Version = "dev"
 
-// NewRootCmd builds the top-level codex-sm command and registers all subcommands.
+// NewRootCmd builds the top-level codexsm command and registers all subcommands.
 func NewRootCmd() *cobra.Command {
 	var (
 		logLevel  string
@@ -19,19 +19,19 @@ func NewRootCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "codex-sm",
+		Use:   "codexsm",
 		Short: "Codex session manager",
-		Long: "codex-sm manages local Codex sessions.\n\n" +
+		Long: "codexsm manages local Codex sessions.\n\n" +
 			"Build/install requires GOEXPERIMENT=jsonv2.\n\n" +
-			"Use `codex-sm help <command>` to view details for a subcommand.\n" +
-			"Examples: `codex-sm help delete`, `codex-sm help list`, `codex-sm help group`, `codex-sm help doctor`, `codex-sm help version`.",
-		Example: "  codex-sm list\n" +
-			"  codex-sm tui\n" +
-			"  codex-sm group --by day\n" +
-			"  codex-sm delete --id <session_id>\n" +
-			"  codex-sm doctor\n" +
-			"  codex-sm version --short\n" +
-			"  codex-sm help delete",
+			"Use `codexsm help <command>` to view details for a subcommand.\n" +
+			"Examples: `codexsm help delete`, `codexsm help list`, `codexsm help group`, `codexsm help doctor`, `codexsm help version`.",
+		Example: "  codexsm list\n" +
+			"  codexsm tui\n" +
+			"  codexsm group --by day\n" +
+			"  codexsm delete --id <session_id>\n" +
+			"  codexsm doctor\n" +
+			"  codexsm version --short\n" +
+			"  codexsm help delete",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},

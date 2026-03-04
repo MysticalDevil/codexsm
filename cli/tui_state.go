@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/MysticalDevil/codex-sm/session"
+	"github.com/MysticalDevil/codexsm/session"
 )
 
 func (m *tuiModel) visibleRows() int {

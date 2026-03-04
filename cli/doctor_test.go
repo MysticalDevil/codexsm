@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MysticalDevil/codex-sm/internal/testsupport"
+	"github.com/MysticalDevil/codexsm/internal/testsupport"
 )
 
 func TestDoctorCommandNonStrict(t *testing.T) {

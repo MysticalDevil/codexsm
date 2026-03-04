@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MysticalDevil/codex-sm/internal/testsupport"
+	"github.com/MysticalDevil/codexsm/internal/testsupport"
 )
 
 func TestDeleteSessionsDryRunNoSideEffects(t *testing.T) {

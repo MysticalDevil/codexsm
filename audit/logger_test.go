@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MysticalDevil/codex-sm/session"
+	"github.com/MysticalDevil/codexsm/session"
 )
 
 func TestWriteActionLog(t *testing.T) {

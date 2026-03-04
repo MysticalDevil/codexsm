@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MysticalDevil/codex-sm/internal/testsupport"
+	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/spf13/cobra"
 )
 

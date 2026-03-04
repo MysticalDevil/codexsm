@@ -11,7 +11,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/MysticalDevil/codex-sm/session"
+	"github.com/MysticalDevil/codexsm/session"
 
 	"github.com/spf13/cobra"
 )
@@ -43,10 +43,10 @@ func newGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "group",
 		Short: "Group sessions by day or health",
-		Example: "  codex-sm group --by day\n" +
-			"  codex-sm group --by health\n" +
-			"  codex-sm group --by day --older-than 30d\n" +
-			"  codex-sm group --by health --sort size --order desc --format csv",
+		Example: "  codexsm group --by day\n" +
+			"  codexsm group --by health\n" +
+			"  codexsm group --by day --older-than 30d\n" +
+			"  codexsm group --by health --sort size --order desc --format csv",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var err error
 			sessionsRoot, err = resolveOrDefault(sessionsRoot, runtimeSessionsRoot)

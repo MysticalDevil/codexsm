@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MysticalDevil/codex-sm/internal/testsupport"
+	"github.com/MysticalDevil/codexsm/internal/testsupport"
 )
 
 func TestScanSessionsHealthAndID(t *testing.T) {

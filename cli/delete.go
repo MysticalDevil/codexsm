@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MysticalDevil/codex-sm/audit"
-	"github.com/MysticalDevil/codex-sm/config"
-	"github.com/MysticalDevil/codex-sm/session"
+	"github.com/MysticalDevil/codexsm/audit"
+	"github.com/MysticalDevil/codexsm/config"
+	"github.com/MysticalDevil/codexsm/session"
 
 	"github.com/spf13/cobra"
 )
@@ -40,10 +40,10 @@ func newDeleteCmd() *cobra.Command {
 		Long: "Delete sessions matched by selectors.\n\n" +
 			"By default this command runs in dry-run mode and does not modify files.\n" +
 			"Use `--dry-run=false --confirm` for real deletion.",
-		Example: "  codex-sm delete --id <session_id>\n" +
-			"  codex-sm delete --id-prefix 019ca9 --dry-run=false --confirm\n" +
-			"  codex-sm delete --older-than 90d --dry-run=false --confirm --yes\n" +
-			"  codex-sm delete --id <session_id> --dry-run=false --confirm --hard",
+		Example: "  codexsm delete --id <session_id>\n" +
+			"  codexsm delete --id-prefix 019ca9 --dry-run=false --confirm\n" +
+			"  codexsm delete --older-than 90d --dry-run=false --confirm --yes\n" +
+			"  codexsm delete --id <session_id> --dry-run=false --confirm --hard",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lg := logger().With("command", "delete")
 			var err error

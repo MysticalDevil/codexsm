@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// AppConfig is the user-level runtime configuration for codex-sm.
+// AppConfig is the user-level runtime configuration for codexsm.
 type AppConfig struct {
 	SessionsRoot string    `json:"sessions_root"`
 	TrashRoot    string    `json:"trash_root"`
@@ -30,7 +30,7 @@ func AppConfigPath() (string, error) {
 	if v := strings.TrimSpace(os.Getenv("CSM_CONFIG")); v != "" {
 		return ResolvePath(v)
 	}
-	return ResolvePath("~/.config/codex-sm/config.json")
+	return ResolvePath("~/.config/codexsm/config.json")
 }
 
 // LoadAppConfig reads and parses user config.

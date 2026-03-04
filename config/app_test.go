@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MysticalDevil/codex-sm/internal/testsupport"
+	"github.com/MysticalDevil/codexsm/internal/testsupport"
 )
 
 func TestLoadAppConfigMissingReturnsZero(t *testing.T) {
@@ -31,7 +31,7 @@ func TestLoadAppConfigParsesFields(t *testing.T) {
 	data := []byte(`{
   "sessions_root":"~/.codex/sessions",
   "trash_root":"~/.codex/trash",
-  "log_file":"~/.codex/codex-sm/logs/actions.log",
+  "log_file":"~/.codex/codexsm/logs/actions.log",
   "tui":{
     "group_by":"host",
     "theme":"catppuccin",
