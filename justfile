@@ -48,8 +48,7 @@ cover-gate:
   awk -v got="$({{go}} tool cover -func=coverage_integration.out | awk '/^total:/ {gsub("%","",$3); print $3}')" -v min="{{integration_cov_min}}" 'BEGIN { if (got+0 < min+0) { printf("integration coverage %.1f%% < %.1f%%\n", got, min); exit 1 } else { printf("integration coverage %.1f%% >= %.1f%%\n", got, min) } }'
 
 check-tag version:
-  tagged=$(git tag --points-at HEAD --list "v{{version}}" | wc -l | tr -d ' ')
-  [[ "$tagged" == "1" ]] || { echo "expected current HEAD to have tag v{{version}}"; exit 1; }
+  [[ "$(git tag --points-at HEAD --list "v{{version}}" | wc -l | tr -d ' ')" == "1" ]] || { echo "expected current HEAD to have tag v{{version}}"; exit 1; }
 
 check-readme-version version:
   rg -q "@v{{version}}" README.md || { echo "README.md does not contain install example with @v{{version}}"; exit 1; }
