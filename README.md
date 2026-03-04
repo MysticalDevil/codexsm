@@ -2,6 +2,10 @@
 
 `codex-sm` is a safety-first local Codex session manager written in Go.
 
+Project design notes:
+
+- [Architecture Notes](./docs/ARCHITECTURE.md)
+
 ## Compatibility
 
 - Go: `1.26+`
@@ -25,6 +29,7 @@ It provides:
 - Optional terminal UI (`tui`)
 - Safe deletion (`delete`, dry-run by default)
 - Session restore from trash (`restore`, dry-run by default)
+- Environment diagnostics (`doctor`)
 
 ## Features
 
@@ -48,23 +53,65 @@ It provides:
 - Optional TUI mode:
   - keyboard navigation (`j/k/g/G`)
   - tree grouping (`--group-by month|day|health|host|none`)
+  - configurable source (`--source sessions|trash`)
   - selected session detail view
-  - safe dry-run delete preview (`d`)
+  - in-TUI delete/restore actions with safety guards
   - semantic preview highlighting (`U/A` role markers and `<...>` tag coloring)
+  - built-in themes (`tokyonight`, `catppuccin`, `gruvbox`, `onedark`, `nord`, `dracula`)
+  - custom theme overrides (`--theme-color key=value` or config file)
 
 ## TUI Status
 
-Current TUI is usable for daily browsing and safe cleanup preview:
+Current TUI is usable for daily browsing and safe cleanup operations:
 
 - stable session tree navigation and preview scrolling
 - multiple grouping modes for tree browsing
 - readable bottom info bar with host path preview
-- dry-run delete preview from TUI (`d`)
+- dry-run and real delete from TUI source `sessions` (`d`)
+- dry-run and real restore from TUI source `trash` (`r`)
+- built-in theme presets and user custom color overrides
 
 Current limitations:
 
-- TUI is browse/preview focused (no in-TUI real delete/restore flow yet)
+- TUI still focuses on single-session actions per keypress (bulk actions stay in CLI)
 - layout and color tuning are still being iterated
+
+## Configuration
+
+`codex-sm` loads runtime config from:
+
+- `$CSM_CONFIG` (if set)
+- otherwise `~/.config/codex-sm/config.json`
+
+Example:
+
+```json
+{
+  "sessions_root": "~/.codex/sessions",
+  "trash_root": "~/.codex/trash",
+  "log_file": "~/.codex/codex-sm/logs/actions.log",
+  "tui": {
+    "group_by": "month",
+    "source": "sessions",
+    "theme": "catppuccin",
+    "colors": {
+      "keys_label": "#ffffff",
+      "keys_key": "#89dceb",
+      "border_focus": "#f38ba8"
+    }
+  }
+}
+```
+
+Common color keys for `tui.colors` / `--theme-color`:
+
+- `bg`, `fg`, `border`, `border_focus`
+- `title_tree`, `title_preview`, `group`
+- `selected_fg`, `selected_bg`, `cursor_active`, `cursor_inactive`
+- `keys_label`, `keys_key`, `keys_sep`, `keys_text`
+- `info_header`, `info_value`, `status`
+- `prefix_user`, `prefix_assistant`, `prefix_other`, `prefix_default`
+- `tag_default`, `tag_system`, `tag_lifecycle`, `tag_danger`, `tag_success`
 
 ## Build
 
@@ -81,13 +128,13 @@ just build
 Or:
 
 ```bash
-GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.4" -o codex-sm .
+GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.5" -o codex-sm .
 ```
 
 Default local build version is `dev`. Set `VERSION` for release builds:
 
 ```bash
-VERSION=0.1.4 just build
+VERSION=0.1.5 just build
 ```
 
 ## Install
@@ -95,23 +142,18 @@ VERSION=0.1.4 just build
 Preferred (Go):
 
 ```bash
-GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codex-sm@v0.1.4
+GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codex-sm@v0.1.5
 ```
 
 With `mise`:
 
 ```bash
-GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codex-sm@v0.1.4
+GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codex-sm@v0.1.5
 ```
 
 Note:
 
-- The installed binary name is `codex-sm` (module root package name).
-- If you prefer `csm`, add an alias, for example:
-
-```bash
-alias csm='codex-sm'
-```
+- The installed binary name is `codex-sm`.
 
 ## Quick Start
 
@@ -124,6 +166,9 @@ codex-sm tui
 
 # Launch TUI grouped by host
 codex-sm tui --group-by host
+
+# Launch TUI with a different source and theme
+codex-sm tui --source trash --theme gruvbox --theme-color border_focus=#fabd2f
 
 # Detailed list view
 codex-sm list --detailed
@@ -142,6 +187,10 @@ codex-sm group --by day
 
 # Group by health with sorting and limit
 codex-sm group --by health --sort count --order desc --limit 5
+
+# Environment checks
+codex-sm doctor
+codex-sm doctor --strict
 
 # Dry-run delete (default behavior)
 codex-sm delete --id-prefix 019ca9
@@ -183,6 +232,7 @@ codex-sm help list
 codex-sm help group
 codex-sm help delete
 codex-sm help restore
+codex-sm help doctor
 codex-sm help version
 ```
 
@@ -199,7 +249,7 @@ just cover-unit
 just cover-integration
 just cover-gate
 just check
-just check-release 0.1.4
+just check-release 0.1.5
 
 # Coverage requirements
 # - unit >= 50%

@@ -37,6 +37,11 @@ jobs:
             exit 1
           fi
 
+      - name: Docs consistency
+        run: |
+          test -f docs/ARCHITECTURE.md
+          rg -q "docs/ARCHITECTURE.md" README.md
+
       - name: Vet
         run: go vet ./...
 
@@ -54,4 +59,7 @@ jobs:
           awk -v got="$integration_cov" -v min="$INTEGRATION_COVERAGE_MIN" 'BEGIN { if (got+0 < min+0) { printf("integration coverage %.1f%% < %.1f%%\n", got, min); exit 1 } else { printf("integration coverage %.1f%% >= %.1f%%\n", got, min) } }'
 
       - name: Build
-        run: go build -ldflags="-X main.version=ci-${{ github.sha }}" .
+        run: go build -ldflags="-X main.version=ci-${{ github.sha }}" -o codex-sm .
+
+      - name: Doctor (sanity)
+        run: ./codex-sm doctor
