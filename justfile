@@ -60,6 +60,6 @@ check-release version:
   just check-readme-version {{version}}
 
 build:
-  {{goexperiment}} {{go}} build -ldflags="-X main.version={{version}}" -o codex-sm .
+  {{goexperiment}} {{go}} build -ldflags="-X main.version={{version}}" -o codexsm .
 
 check: fmt lint test-all build

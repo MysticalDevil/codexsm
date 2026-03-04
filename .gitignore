@@ -24,7 +24,7 @@ coverage.out
 
 # Local planning docs
 TARGET.md
-/codex-sm
+/codexsm
 
 # Test runtime sandbox
 /testdata/_sandbox/

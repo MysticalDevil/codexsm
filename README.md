@@ -1,6 +1,6 @@
-# codex-sm
+# codexsm
 
-`codex-sm` is a safety-first local Codex session manager written in Go.
+`codexsm` is a safety-first local Codex session manager written in Go.
 
 Project design notes:
 
@@ -78,10 +78,10 @@ Current limitations:
 
 ## Configuration
 
-`codex-sm` loads runtime config from:
+`codexsm` loads runtime config from:
 
 - `$CSM_CONFIG` (if set)
-- otherwise `~/.config/codex-sm/config.json`
+- otherwise `~/.config/codexsm/config.json`
 
 Example:
 
@@ -89,7 +89,7 @@ Example:
 {
   "sessions_root": "~/.codex/sessions",
   "trash_root": "~/.codex/trash",
-  "log_file": "~/.codex/codex-sm/logs/actions.log",
+  "log_file": "~/.codex/codexsm/logs/actions.log",
   "tui": {
     "group_by": "month",
     "source": "sessions",
@@ -128,7 +128,7 @@ just build
 Or:
 
 ```bash
-GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.5" -o codex-sm .
+GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.5" -o codexsm .
 ```
 
 Default local build version is `dev`. Set `VERSION` for release builds:
@@ -142,70 +142,70 @@ VERSION=0.1.5 just build
 Preferred (Go):
 
 ```bash
-GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codex-sm@v0.1.5
+GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.1.5
 ```
 
 With `mise`:
 
 ```bash
-GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codex-sm@v0.1.5
+GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.1.5
 ```
 
 Note:
 
-- The installed binary name is `codex-sm`.
+- The installed binary name is `codexsm`.
 
 ## Quick Start
 
 ```bash
 # List recent sessions (default limit: 10)
-codex-sm list
+codexsm list
 
 # Launch interactive TUI
-codex-sm tui
+codexsm tui
 
 # Launch TUI grouped by host
-codex-sm tui --group-by host
+codexsm tui --group-by host
 
 # Launch TUI with a different source and theme
-codex-sm tui --source trash --theme gruvbox --theme-color border_focus=#fabd2f
+codexsm tui --source trash --theme gruvbox --theme-color border_focus=#fabd2f
 
 # Detailed list view
-codex-sm list --detailed
+codexsm list --detailed
 
 # Custom columns, no header
-codex-sm list --format csv --no-header --column session_id,health
+codexsm list --format csv --no-header --column session_id,health
 
 # Sort by size ascending
-codex-sm list --sort size --order asc --limit 20
+codexsm list --sort size --order asc --limit 20
 
 # Show all with pager
-codex-sm list --limit 0 --pager
+codexsm list --limit 0 --pager
 
 # Group by day
-codex-sm group --by day
+codexsm group --by day
 
 # Group by health with sorting and limit
-codex-sm group --by health --sort count --order desc --limit 5
+codexsm group --by health --sort count --order desc --limit 5
 
 # Environment checks
-codex-sm doctor
-codex-sm doctor --strict
+codexsm doctor
+codexsm doctor --strict
 
 # Dry-run delete (default behavior)
-codex-sm delete --id-prefix 019ca9
+codexsm delete --id-prefix 019ca9
 
 # Real soft delete
-codex-sm delete --id-prefix 019ca9 --dry-run=false --confirm
+codexsm delete --id-prefix 019ca9 --dry-run=false --confirm
 
 # Real hard delete
-codex-sm delete --id 019ca9c1-3df3-7551-b04b-b2a91c486755 --dry-run=false --confirm --hard
+codexsm delete --id 019ca9c1-3df3-7551-b04b-b2a91c486755 --dry-run=false --confirm --hard
 
 # Dry-run restore from trash
-codex-sm restore --id-prefix 019ca9
+codexsm restore --id-prefix 019ca9
 
 # Real restore
-codex-sm restore --id-prefix 019ca9 --dry-run=false --confirm
+codexsm restore --id-prefix 019ca9 --dry-run=false --confirm
 ```
 
 ## Delete/Restore Safety Model
@@ -227,13 +227,13 @@ Rules:
 ## Command Help
 
 ```bash
-codex-sm help
-codex-sm help list
-codex-sm help group
-codex-sm help delete
-codex-sm help restore
-codex-sm help doctor
-codex-sm help version
+codexsm help
+codexsm help list
+codexsm help group
+codexsm help delete
+codexsm help restore
+codexsm help doctor
+codexsm help version
 ```
 
 ## Development

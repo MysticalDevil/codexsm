@@ -59,7 +59,7 @@ jobs:
           awk -v got="$integration_cov" -v min="$INTEGRATION_COVERAGE_MIN" 'BEGIN { if (got+0 < min+0) { printf("integration coverage %.1f%% < %.1f%%\n", got, min); exit 1 } else { printf("integration coverage %.1f%% >= %.1f%%\n", got, min) } }'
 
       - name: Build
-        run: go build -ldflags="-X main.version=ci-${{ github.sha }}" -o codex-sm .
+        run: go build -ldflags="-X main.version=ci-${{ github.sha }}" -o codexsm .
 
       - name: Doctor (sanity)
-        run: ./codex-sm doctor
+        run: ./codexsm doctor

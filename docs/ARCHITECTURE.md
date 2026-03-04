@@ -1,4 +1,4 @@
-# codex-sm Architecture Notes
+# codexsm Architecture Notes
 
 ## Decoupling Status
 
@@ -10,7 +10,7 @@ Known hot spot:
 
 ## Architecture Design
 
-`codex-sm` follows a layered approach:
+`codexsm` follows a layered approach:
 
 1. Entry and command wiring:
 - `main.go`
@@ -88,7 +88,7 @@ Rationale:
 Config model:
 
 - `config.AppConfig`
-- default file: `~/.config/codex-sm/config.json`
+- default file: `~/.config/codexsm/config.json`
 - override path: `$CSM_CONFIG`
 
 Main keys:
