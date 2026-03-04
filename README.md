@@ -37,6 +37,7 @@ It provides:
   - `json/table/csv/tsv` formats
 - Optional TUI mode:
   - keyboard navigation (`j/k/g/G`)
+  - tree grouping (`--group-by month|day|health|host|none`)
   - selected session detail view
   - safe dry-run delete preview (`d`)
 
@@ -55,13 +56,13 @@ just build
 Or:
 
 ```bash
-GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.3" -o codex-sm .
+GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.4" -o codex-sm .
 ```
 
 Default local build version is `dev`. Set `VERSION` for release builds:
 
 ```bash
-VERSION=0.1.3 just build
+VERSION=0.1.4 just build
 ```
 
 ## Install
@@ -69,13 +70,13 @@ VERSION=0.1.3 just build
 Preferred (Go):
 
 ```bash
-GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codex-sm@v0.1.3
+GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codex-sm@v0.1.4
 ```
 
 With `mise`:
 
 ```bash
-GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codex-sm@v0.1.3
+GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codex-sm@v0.1.4
 ```
 
 Note:
@@ -95,6 +96,9 @@ codex-sm list
 
 # Launch interactive TUI
 codex-sm tui
+
+# Launch TUI grouped by host
+codex-sm tui --group-by host
 
 # Detailed list view
 codex-sm list --detailed
@@ -170,7 +174,12 @@ just cover-unit
 just cover-integration
 just cover-gate
 just check
-just check-release 0.1.3
+just check-release 0.1.4
+
+# Coverage requirements
+# - unit >= 50%
+# - integration >= 65%
+just cover-gate
 ```
 
 Tooling defaults:
