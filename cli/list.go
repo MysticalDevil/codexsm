@@ -4,14 +4,16 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/csv"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/tabwriter"
 	"time"
+	"unicode/utf8"
 
 	"github.com/MysticalDevil/codex-sm/config"
 	"github.com/MysticalDevil/codex-sm/session"
@@ -31,6 +33,7 @@ type listRenderOptions struct {
 	ColorMode string
 	Out       io.Writer
 	Columns   []listColumn
+	HeadWidth int
 }
 
 func newListCmd() *cobra.Command {
@@ -48,6 +51,7 @@ func newListCmd() *cobra.Command {
 		colorMode    string
 		noHeader     bool
 		column       string
+		headWidth    int
 	)
 
 	cmd := &cobra.Command{
@@ -55,6 +59,7 @@ func newListCmd() *cobra.Command {
 		Short: "List Codex sessions",
 		Example: "  csm list\n" +
 			"  csm list --detailed\n" +
+			"  csm list --head-width 48\n" +
 			"  csm list --limit 0 --pager\n" +
 			"  csm list --id-prefix 019ca9 --format json\n" +
 			"  csm list --format csv --column session_id,updated_at,size",
@@ -114,15 +119,21 @@ func newListCmd() *cobra.Command {
 					ColorMode: colorMode,
 					Out:       cmd.OutOrStdout(),
 					Columns:   columns,
+					HeadWidth: headWidth,
 				})
 				if err != nil {
 					return err
 				}
-				return writeWithPager(cmd.OutOrStdout(), table, pager, pageSize)
+				return writeWithPager(cmd.OutOrStdout(), table, pager, pageSize, !noHeader)
 			case "json":
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(filtered)
+				b, err := json.Marshal(filtered)
+				if err != nil {
+					return err
+				}
+				if _, err := cmd.OutOrStdout().Write(append(b, '\n')); err != nil {
+					return err
+				}
+				return nil
 			case "csv":
 				return writeListDelimited(cmd.OutOrStdout(), filtered, ',', noHeader, columns)
 			case "tsv":
@@ -146,17 +157,18 @@ func newListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&colorMode, "color", "always", "color mode: auto|always|never")
 	cmd.Flags().BoolVar(&noHeader, "no-header", false, "hide header row for table/csv/tsv")
 	cmd.Flags().StringVar(&column, "column", "", "comma-separated columns (e.g. session_id,updated_at,size)")
+	cmd.Flags().IntVar(&headWidth, "head-width", 36, "max HEAD width in table format (0 means no truncation)")
 
 	return cmd
 }
 
 func parseListColumns(input string, detailed bool, format string) ([]listColumn, error) {
-	defaults := []string{"id", "updated_at", "size", "health", "name"}
+	defaults := []string{"id", "updated_at", "size", "health", "host", "head"}
 	if detailed {
-		defaults = []string{"session_id", "created_at", "updated_at", "size", "health", "path"}
+		defaults = []string{"session_id", "created_at", "updated_at", "size", "health", "host_dir", "head", "path"}
 	}
 	if format == "csv" || format == "tsv" {
-		defaults = []string{"session_id", "created_at", "updated_at", "size_bytes", "health", "path"}
+		defaults = []string{"session_id", "created_at", "updated_at", "size_bytes", "health", "host_dir", "head", "path"}
 	}
 
 	raw := strings.TrimSpace(input)
@@ -184,8 +196,11 @@ func parseListColumns(input string, detailed bool, format string) ([]listColumn,
 		"size":       {Key: "size", Header: "SIZE"},
 		"size_bytes": {Key: "size_bytes", Header: "SIZE_BYTES"},
 		"health":     {Key: "health", Header: "HEALTH"},
+		"host":       {Key: "host", Header: "HOST"},
+		"host_dir":   {Key: "host_dir", Header: "HOST_DIR"},
 		"path":       {Key: "path", Header: "PATH"},
 		"name":       {Key: "name", Header: "NAME"},
+		"head":       {Key: "head", Header: "HEAD"},
 	}
 
 	cols := make([]listColumn, 0, len(names))
@@ -216,7 +231,7 @@ func renderTable(sessions []session.Session, total int, opts listRenderOptions) 
 	for _, s := range sessions {
 		values := make([]string, 0, len(opts.Columns))
 		for _, c := range opts.Columns {
-			values = append(values, listColumnValue(c.Key, s, home))
+			values = append(values, listColumnValue(c.Key, s, home, opts.HeadWidth, true))
 		}
 		_, _ = fmt.Fprintln(w, strings.Join(values, "\t"))
 	}
@@ -238,7 +253,7 @@ func renderTable(sessions []session.Session, total int, opts listRenderOptions) 
 	return rendered, nil
 }
 
-func writeWithPager(out io.Writer, text string, pager bool, pageSize int) error {
+func writeWithPager(out io.Writer, text string, pager bool, pageSize int, hasHeader bool) error {
 	if !pager || pageSize <= 0 || !isTerminalWriter(out) {
 		_, err := io.WriteString(out, text)
 		return err
@@ -254,34 +269,120 @@ func writeWithPager(out io.Writer, text string, pager bool, pageSize int) error 
 		return err
 	}
 
+	header := ""
+	footer := ""
+	bodyStart := 0
+	bodyEnd := len(lines)
+	if hasHeader && len(lines) > 0 {
+		header = lines[0]
+		bodyStart = 1
+	}
+	if bodyEnd > bodyStart && strings.HasPrefix(stripANSI(strings.TrimSpace(lines[bodyEnd-1])), "showing ") {
+		footer = lines[bodyEnd-1]
+		bodyEnd--
+	}
+	body := lines[bodyStart:bodyEnd]
+	if len(body) == 0 {
+		_, err := io.WriteString(out, text)
+		return err
+	}
+
+	pages := (len(body) + pageSize - 1) / pageSize
+	page := 0
 	in := bufio.NewReader(os.Stdin)
-	for i := 0; i < len(lines); {
-		end := i + pageSize
-		if end > len(lines) {
-			end = len(lines)
+	for {
+		start := page * pageSize
+		end := start + pageSize
+		if end > len(body) {
+			end = len(body)
 		}
-		for _, line := range lines[i:end] {
+
+		if header != "" {
+			if _, err := fmt.Fprintln(out, header); err != nil {
+				return err
+			}
+		}
+		for _, line := range body[start:end] {
 			if _, err := fmt.Fprintln(out, line); err != nil {
 				return err
 			}
 		}
-		i = end
-		if i >= len(lines) {
+		if footer != "" {
+			if _, err := fmt.Fprintln(out, footer); err != nil {
+				return err
+			}
+		}
+		if page >= pages-1 {
 			break
 		}
-		if _, err := fmt.Fprint(out, "-- More -- (Enter/q): "); err != nil {
+
+		if _, err := fmt.Fprintf(out, "-- Page %d/%d -- [Enter/n next, b back, a all, q quit]: ", page+1, pages); err != nil {
 			return err
 		}
 		choice, err := in.ReadString('\n')
 		if err != nil {
 			return err
 		}
+		if _, err := fmt.Fprint(out, "\r\033[2K"); err != nil {
+			return err
+		}
 		c := strings.ToLower(strings.TrimSpace(choice))
+		switch c {
+		case "q", "quit":
+			break
+		case "a", "all":
+		case "b", "back", "p", "prev":
+			if page > 0 {
+				page--
+			}
+		case "", "n", "next", " ":
+			if page < pages-1 {
+				page++
+			}
+		default:
+			if page < pages-1 {
+				page++
+			}
+		}
 		if c == "q" || c == "quit" {
 			break
 		}
+		if c == "a" || c == "all" {
+			for p := page + 1; p < pages; p++ {
+				start = p * pageSize
+				end = start + pageSize
+				if end > len(body) {
+					end = len(body)
+				}
+				if header != "" {
+					if _, err := fmt.Fprintln(out, header); err != nil {
+						return err
+					}
+				}
+				for _, line := range body[start:end] {
+					if _, err := fmt.Fprintln(out, line); err != nil {
+						return err
+					}
+				}
+				if footer != "" {
+					if _, err := fmt.Fprintln(out, footer); err != nil {
+						return err
+					}
+				}
+			}
+			break
+		}
+		if _, err := fmt.Fprintln(out); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+var ansiColorRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func stripANSI(v string) string {
+	return ansiColorRe.ReplaceAllString(v, "")
 }
 
 func shouldUseColor(mode string, out io.Writer) bool {
@@ -379,7 +480,7 @@ func shortID(id string) string {
 	return id[:max]
 }
 
-func listColumnValue(key string, s session.Session, home string) string {
+func listColumnValue(key string, s session.Session, home string, headWidth int, truncateHead bool) string {
 	switch key {
 	case "id":
 		return shortID(s.SessionID)
@@ -395,13 +496,47 @@ func listColumnValue(key string, s session.Session, home string) string {
 		return fmt.Sprintf("%d", s.SizeBytes)
 	case "health":
 		return string(s.Health)
+	case "host", "host_dir":
+		if strings.TrimSpace(s.HostDir) == "" {
+			return "-"
+		}
+		return compactHomePath(s.HostDir, home)
 	case "path":
 		return compactHomePath(s.Path, home)
 	case "name":
 		return filepath.Base(s.Path)
+	case "head":
+		if strings.TrimSpace(s.Head) == "" {
+			return "-"
+		}
+		if truncateHead {
+			return truncateDisplayText(s.Head, headWidth)
+		}
+		return s.Head
 	default:
 		return ""
 	}
+}
+
+func truncateDisplayText(v string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return v
+	}
+	if utf8.RuneCountInString(v) <= maxRunes {
+		return v
+	}
+
+	var b strings.Builder
+	count := 0
+	for _, r := range v {
+		if count >= maxRunes {
+			break
+		}
+		b.WriteRune(r)
+		count++
+	}
+	b.WriteString("...")
+	return b.String()
 }
 
 func hasHealthColumn(cols []listColumn) bool {
@@ -472,7 +607,7 @@ func writeListDelimited(out io.Writer, sessions []session.Session, sep rune, noH
 			case "path":
 				record = append(record, compactHomePath(s.Path, home))
 			default:
-				record = append(record, listColumnValue(c.Key, s, home))
+				record = append(record, listColumnValue(c.Key, s, home, 0, false))
 			}
 		}
 		if err := w.Write(record); err != nil {

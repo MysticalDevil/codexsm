@@ -2,7 +2,7 @@
 package audit
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"os"
@@ -31,6 +31,41 @@ type ActionRecord struct {
 	ErrorSummary  string                 `json:"error_summary,omitempty"`
 }
 
+type actionRecordJSON struct {
+	Timestamp     time.Time              `json:"timestamp"`
+	Action        string                 `json:"action"`
+	Simulation    bool                   `json:"simulation"`
+	Selector      selectorRecord         `json:"selector"`
+	MatchedCount  int                    `json:"matched_count"`
+	AffectedBytes int64                  `json:"affected_bytes"`
+	Sessions      []SessionRef           `json:"sessions"`
+	Results       []session.DeleteResult `json:"results"`
+	ErrorSummary  string                 `json:"error_summary,omitempty"`
+}
+
+type selectorRecord struct {
+	ID           string         `json:"id,omitempty"`
+	IDPrefix     string         `json:"id_prefix,omitempty"`
+	OlderThan    string         `json:"older_than,omitempty"`
+	HasOlderThan bool           `json:"has_older_than,omitempty"`
+	Health       session.Health `json:"health,omitempty"`
+	HasHealth    bool           `json:"has_health,omitempty"`
+}
+
+func newSelectorRecord(sel session.Selector) selectorRecord {
+	out := selectorRecord{
+		ID:           sel.ID,
+		IDPrefix:     sel.IDPrefix,
+		HasOlderThan: sel.HasOlderThan,
+		Health:       sel.Health,
+		HasHealth:    sel.HasHealth,
+	}
+	if sel.HasOlderThan {
+		out.OlderThan = sel.OlderThan.String()
+	}
+	return out
+}
+
 // WriteActionLog appends a single JSON line action record to the log file.
 func WriteActionLog(logFile string, rec ActionRecord) error {
 	if err := config.EnsureDirForFile(logFile); err != nil {
@@ -42,8 +77,27 @@ func WriteActionLog(logFile string, rec ActionRecord) error {
 		return fmt.Errorf("open log file: %w", err)
 	}
 
-	enc := json.NewEncoder(f)
-	if err := enc.Encode(rec); err != nil {
+	payload := actionRecordJSON{
+		Timestamp:     rec.Timestamp,
+		Action:        rec.Action,
+		Simulation:    rec.Simulation,
+		Selector:      newSelectorRecord(rec.Selector),
+		MatchedCount:  rec.MatchedCount,
+		AffectedBytes: rec.AffectedBytes,
+		Sessions:      rec.Sessions,
+		Results:       rec.Results,
+		ErrorSummary:  rec.ErrorSummary,
+	}
+
+	b, err := json.Marshal(payload)
+	if err != nil {
+		writeErr := fmt.Errorf("write log line: %w", err)
+		if closeErr := f.Close(); closeErr != nil {
+			return errors.Join(writeErr, fmt.Errorf("close log file: %w", closeErr))
+		}
+		return writeErr
+	}
+	if _, err := f.Write(append(b, '\n')); err != nil {
 		writeErr := fmt.Errorf("write log line: %w", err)
 		if closeErr := f.Close(); closeErr != nil {
 			return errors.Join(writeErr, fmt.Errorf("close log file: %w", closeErr))

@@ -3,7 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/csv"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"sort"
@@ -80,11 +80,16 @@ func newGroupCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return writeWithPager(cmd.OutOrStdout(), table, pager, pageSize)
+				return writeWithPager(cmd.OutOrStdout(), table, pager, pageSize, true)
 			case "json":
-				enc := json.NewEncoder(cmd.OutOrStdout())
-				enc.SetIndent("", "  ")
-				return enc.Encode(stats)
+				b, err := json.Marshal(stats)
+				if err != nil {
+					return err
+				}
+				if _, err := cmd.OutOrStdout().Write(append(b, '\n')); err != nil {
+					return err
+				}
+				return nil
 			case "csv":
 				return writeGroupDelimited(cmd.OutOrStdout(), stats, ',')
 			case "tsv":

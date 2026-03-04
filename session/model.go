@@ -25,7 +25,9 @@ type Session struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	SizeBytes int64     `json:"size_bytes"`
 	Path      string    `json:"path"`
+	HostDir   string    `json:"host_dir,omitempty"`
 	Health    Health    `json:"health"`
+	Head      string    `json:"head,omitempty"`
 }
 
 // Selector defines user-provided filters used by list and delete operations.

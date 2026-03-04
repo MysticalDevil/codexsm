@@ -2,15 +2,18 @@ package session
 
 import (
 	"bufio"
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var idInFilenameRe = regexp.MustCompile(`([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\\.jsonl$`)
@@ -20,6 +23,19 @@ type metaLine struct {
 	Payload struct {
 		ID        string `json:"id"`
 		Timestamp string `json:"timestamp"`
+		Cwd       string `json:"cwd"`
+	} `json:"payload"`
+}
+
+type responseItemLine struct {
+	Type    string `json:"type"`
+	Payload struct {
+		Type    string `json:"type"`
+		Role    string `json:"role"`
+		Text    string `json:"text"`
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
 	} `json:"payload"`
 }
 
@@ -111,6 +127,12 @@ func scanOne(path string) (Session, error) {
 	}
 
 	var m metaLine
+	if !jsontext.Value(line).IsValid() {
+		s.Health = HealthCorrupted
+		s.CreatedAt = s.UpdatedAt
+		closeScanFile()
+		return s, nil
+	}
 	if err := json.Unmarshal(line, &m); err != nil {
 		s.Health = HealthCorrupted
 		s.CreatedAt = s.UpdatedAt
@@ -126,14 +148,158 @@ func scanOne(path string) (Session, error) {
 	}
 
 	s.SessionID = m.Payload.ID
+	s.HostDir = strings.TrimSpace(m.Payload.Cwd)
 	if ts, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(m.Payload.Timestamp)); err == nil {
 		s.CreatedAt = ts
 	} else {
 		s.CreatedAt = s.UpdatedAt
 	}
+	s.Head = readConversationHead(r)
 
 	closeScanFile()
 	return s, nil
+}
+
+func readConversationHead(r *bufio.Reader) string {
+	const maxLines = 1024
+	const maxCandidates = 24
+	candidates := make([]string, 0, maxCandidates)
+	for i := 0; i < maxLines; i++ {
+		line, err := r.ReadBytes('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			break
+		}
+		line = []byte(strings.TrimSpace(string(line)))
+		if len(line) > 0 {
+			head := conversationHeadFromLine(line)
+			if head != "" {
+				candidates = append(candidates, head)
+				if len(candidates) >= maxCandidates {
+					break
+				}
+			}
+		}
+		if errors.Is(err, io.EOF) {
+			break
+		}
+	}
+	return pickBestHead(candidates)
+}
+
+func conversationHeadFromLine(line []byte) string {
+	var item responseItemLine
+	if !jsontext.Value(line).IsValid() {
+		return ""
+	}
+	if err := json.Unmarshal(line, &item); err != nil {
+		return ""
+	}
+	if item.Type != "response_item" {
+		return ""
+	}
+	if item.Payload.Type != "message" || item.Payload.Role != "user" {
+		return ""
+	}
+
+	for _, c := range item.Payload.Content {
+		if v := compactText(c.Text); v != "" {
+			return v
+		}
+	}
+	return compactText(item.Payload.Text)
+}
+
+func compactText(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return ""
+	}
+	return strings.Join(strings.Fields(v), " ")
+}
+
+func pickBestHead(candidates []string) string {
+	if len(candidates) == 0 {
+		return ""
+	}
+	best := ""
+	bestScore := -1
+	firstUseful := ""
+	for _, c := range candidates {
+		if firstUseful == "" && !isLikelyHeadNoise(c) {
+			firstUseful = c
+		}
+		score := scoreHeadCandidate(c)
+		if score > bestScore {
+			best = c
+			bestScore = score
+		}
+	}
+	if bestScore > 0 {
+		return best
+	}
+	if firstUseful != "" {
+		return firstUseful
+	}
+	return candidates[0]
+}
+
+func scoreHeadCandidate(v string) int {
+	s := strings.TrimSpace(v)
+	if s == "" {
+		return 0
+	}
+	if isLikelyHeadNoise(s) {
+		return 0
+	}
+
+	runes := utf8.RuneCountInString(s)
+	score := 10
+	switch {
+	case runes >= 12 && runes <= 96:
+		score += 45
+	case runes >= 8 && runes <= 128:
+		score += 25
+	default:
+		score += 5
+	}
+
+	lower := strings.ToLower(s)
+	for _, kw := range []string{
+		"fix", "add", "implement", "optimize", "refactor", "improve", "support",
+		"实现", "增加", "优化", "修复", "支持", "改", "新增",
+	} {
+		if strings.Contains(lower, kw) {
+			score += 15
+			break
+		}
+	}
+
+	if strings.Contains(s, "?") || strings.Contains(s, "？") {
+		score += 8
+	}
+	return score
+}
+
+func isLikelyHeadNoise(v string) bool {
+	lower := strings.ToLower(strings.TrimSpace(v))
+	if lower == "" {
+		return true
+	}
+	noiseMarkers := []string{
+		"agents.md instructions",
+		"<instructions>",
+		"repository guidelines",
+		"global agent rules",
+		"## instruction hierarchy",
+		"## tooling priorities",
+		"## validation before finish",
+		"you are codex",
+		"you are an awaiter",
+	}
+	if slices.ContainsFunc(noiseMarkers, func(m string) bool { return strings.Contains(lower, m) }) {
+		return true
+	}
+	return utf8.RuneCountInString(lower) > 200
 }
 
 func sessionIDFromFilename(base string) string {

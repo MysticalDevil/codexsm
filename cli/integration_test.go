@@ -2,7 +2,7 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -11,7 +11,16 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/spf13/cobra"
 )
+
+func newIsolatedRootCmd(t *testing.T) *cobra.Command {
+	t.Helper()
+	fakeRoot := filepath.Join(t.TempDir(), "simulated-sessions")
+	t.Setenv("SESSIONS_ROOT", fakeRoot)
+	return NewRootCmd()
+}
 
 func TestList_DefaultLimitShowsLatest10(t *testing.T) {
 	root := t.TempDir()
@@ -31,7 +40,7 @@ func TestList_DefaultLimitShowsLatest10(t *testing.T) {
 		}
 	}
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	cmd.SetOut(stdout)
@@ -46,7 +55,20 @@ func TestList_DefaultLimitShowsLatest10(t *testing.T) {
 	if !strings.Contains(out, "showing 10 of 12") {
 		t.Fatalf("unexpected list footer: %q", out)
 	}
-	if count := strings.Count(out, "rollout-"); count != 10 {
+	if !strings.Contains(out, "HEAD") {
+		t.Fatalf("expected HEAD column in output: %q", out)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	count := 0
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "ID") || strings.HasPrefix(line, "showing ") {
+			continue
+		}
+		count++
+	}
+	if count != 10 {
 		t.Fatalf("expected 10 rows, got %d", count)
 	}
 }
@@ -69,11 +91,11 @@ func TestList_FormatCSVAndTSV(t *testing.T) {
 		header  string
 		contain string
 	}{
-		{name: "csv", format: "csv", header: "session_id,created_at,updated_at,size_bytes,health,path", contain: id + ","},
-		{name: "tsv", format: "tsv", header: "session_id\tcreated_at\tupdated_at\tsize_bytes\thealth\tpath", contain: id + "\t"},
+		{name: "csv", format: "csv", header: "session_id,created_at,updated_at,size_bytes,health,host_dir,head,path", contain: id + ","},
+		{name: "tsv", format: "tsv", header: "session_id\tcreated_at\tupdated_at\tsize_bytes\thealth\thost_dir\thead\tpath", contain: id + "\t"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := NewRootCmd()
+			cmd := newIsolatedRootCmd(t)
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			cmd.SetOut(stdout)
@@ -93,6 +115,50 @@ func TestList_FormatCSVAndTSV(t *testing.T) {
 	}
 }
 
+func TestList_HostDirDisplayHomeAndNonHome(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HOME", "/tmp/home-sim")
+	homeHostID := "34343434-3434-3434-3434-343434343434"
+	nonHomeHostID := "45454545-4545-4545-4545-454545454545"
+
+	p1 := filepath.Join(root, "2026", "03", "02", "rollout-home-host.jsonl")
+	if err := os.MkdirAll(filepath.Dir(p1), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	c1 := `{"type":"session_meta","payload":{"id":"` + homeHostID + `","timestamp":"2026-03-02T09:44:00.024Z","cwd":"/tmp/home-sim/work/a"}}` + "\n" +
+		`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"host home"}]}}` + "\n"
+	if err := os.WriteFile(p1, []byte(c1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	p2 := filepath.Join(root, "2026", "03", "02", "rollout-non-home-host.jsonl")
+	c2 := `{"type":"session_meta","payload":{"id":"` + nonHomeHostID + `","timestamp":"2026-03-02T09:44:00.024Z","cwd":"/var/tmp/proj"}}` + "\n" +
+		`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"host non home"}]}}` + "\n"
+	if err := os.WriteFile(p2, []byte(c2), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := newIsolatedRootCmd(t)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{"list", "--sessions-root", root, "--limit", "0", "--color", "never"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "HOST") {
+		t.Fatalf("expected HOST column in output: %q", out)
+	}
+	if !strings.Contains(out, "~/work/a") {
+		t.Fatalf("expected home host path compacted to ~: %q", out)
+	}
+	if !strings.Contains(out, "/var/tmp/proj") {
+		t.Fatalf("expected non-home host path kept full: %q", out)
+	}
+}
+
 func TestList_NoHeaderAndColumn(t *testing.T) {
 	root := t.TempDir()
 	id := "88888888-8888-8888-8888-888888888888"
@@ -105,7 +171,7 @@ func TestList_NoHeaderAndColumn(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	cmd.SetOut(stdout)
@@ -130,6 +196,68 @@ func TestList_NoHeaderAndColumn(t *testing.T) {
 	}
 }
 
+func TestList_HeadWidth(t *testing.T) {
+	root := t.TempDir()
+	id := "12121212-1212-1212-1212-121212121212"
+	path := filepath.Join(root, "2026", "03", "02", "rollout-head-width.jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"type":"session_meta","payload":{"id":"` + id + `","timestamp":"2026-03-02T09:44:00.024Z"}}` + "\n" +
+		`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"this is a very long head line for testing"}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := newIsolatedRootCmd(t)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{
+		"list",
+		"--sessions-root", root,
+		"--limit", "1",
+		"--head-width", "10",
+		"--color", "never",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "this is a ...") {
+		t.Fatalf("expected truncated head in output: %q", out)
+	}
+}
+
+func TestList_UsesSimulatedDefaultSessionsRoot(t *testing.T) {
+	root := t.TempDir()
+	id := "23232323-2323-2323-2323-232323232323"
+	path := filepath.Join(root, "2026", "03", "02", "rollout-default-root.jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := `{"type":"session_meta","payload":{"id":"` + id + `","timestamp":"2026-03-02T09:44:00.024Z"}}` + "\n" +
+		`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"simulate default root test"}]}}` + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := newIsolatedRootCmd(t)
+	t.Setenv("SESSIONS_ROOT", root)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{"list", "--limit", "1", "--color", "never"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("list execute: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "simulate default root test") {
+		t.Fatalf("expected simulated data in output: %q", stdout.String())
+	}
+}
+
 func TestDelete_DryRunWritesAuditAndKeepsFile(t *testing.T) {
 	root := t.TempDir()
 	logFile := filepath.Join(t.TempDir(), "actions.log")
@@ -144,7 +272,7 @@ func TestDelete_DryRunWritesAuditAndKeepsFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	cmd.SetOut(stdout)
@@ -190,7 +318,7 @@ func TestDelete_RealDeleteRequiresConfirm(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs([]string{"delete", "--sessions-root", root, "--id", id, "--dry-run=false", "--interactive-confirm=false", "--log-file", logFile})
@@ -224,7 +352,7 @@ func TestDelete_RealDeleteInteractiveConfirmDisabledNeedsYes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetIn(bytes.NewBufferString(""))
@@ -253,7 +381,7 @@ func TestDelete_RealSoftDeleteMovesToTrash(t *testing.T) {
 	filename := "rollout-2026-03-02T17-44-00-44444444-4444-4444-4444-444444444444.jsonl"
 	src := createSessionFile(t, root, "2026/03/02/"+filename, id)
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	cmd.SetOut(stdout)
@@ -292,7 +420,7 @@ func TestDelete_RealHardDeleteRemovesFile(t *testing.T) {
 	id := "55555555-5555-5555-5555-555555555555"
 	src := createSessionFile(t, root, "2026/03/02/rollout-2026-03-02T17-44-00-55555555-5555-5555-5555-555555555555.jsonl", id)
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs([]string{
@@ -322,7 +450,7 @@ func TestDelete_MaxBatchGuardBlocksRealDelete(t *testing.T) {
 	p2 := createSessionFile(t, root, "2026/03/02/rollout-2.jsonl", "66666666-6666-6666-6666-bbbbbbbbbbbb")
 	p3 := createSessionFile(t, root, "2026/03/02/rollout-3.jsonl", "66666666-6666-6666-6666-cccccccccccc")
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs([]string{
@@ -356,7 +484,7 @@ func TestDelete_RequiresSelector(t *testing.T) {
 	logFile := filepath.Join(t.TempDir(), "actions.log")
 	createSessionFile(t, root, "2026/03/02/rollout-1.jsonl", "77777777-7777-7777-7777-777777777777")
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs([]string{"delete", "--sessions-root", root, "--log-file", logFile})
@@ -377,7 +505,7 @@ func TestDelete_RealDeleteShowsPreview(t *testing.T) {
 	id := "88888888-1111-2222-3333-444444444444"
 	createSessionFile(t, root, "2026/03/02/rollout-preview.jsonl", id)
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	cmd.SetOut(stdout)
@@ -410,7 +538,7 @@ func TestRestore_DryRunDoesNotMoveFile(t *testing.T) {
 	id := "99990000-1111-2222-3333-444444444444"
 	trashed := createSessionFile(t, filepath.Join(trashRoot, "sessions"), "2026/03/02/rollout-r1.jsonl", id)
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs([]string{
@@ -440,7 +568,7 @@ func TestRestore_RealMovesFileBack(t *testing.T) {
 	id := "99990000-1111-2222-3333-aaaaaaaaaaaa"
 	trashed := createSessionFile(t, filepath.Join(trashRoot, "sessions"), "2026/03/02/rollout-r2.jsonl", id)
 
-	cmd := NewRootCmd()
+	cmd := newIsolatedRootCmd(t)
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs([]string{
