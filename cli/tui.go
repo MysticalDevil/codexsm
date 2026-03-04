@@ -56,6 +56,7 @@ type tuiModel struct {
 	previewCache  map[string][]string
 	lastPath      string
 	focus         tuiFocus
+	groupBy       string
 }
 
 const (
@@ -78,10 +79,21 @@ const (
 
 var angleTagRe = regexp.MustCompile(`<[^>\n]{1,80}>`)
 
+type angleTagTone int
+
+const (
+	angleTagToneDefault angleTagTone = iota
+	angleTagToneSystem
+	angleTagToneLifecycle
+	angleTagToneDanger
+	angleTagToneSuccess
+)
+
 func newTUICmd() *cobra.Command {
 	var (
 		sessionsRoot string
 		limit        int
+		groupBy      string
 	)
 
 	cmd := &cobra.Command{
@@ -119,6 +131,10 @@ func newTUICmd() *cobra.Command {
 			}
 
 			home, _ := config.ResolvePath("~")
+			mode, err := normalizeTUIGroupBy(groupBy)
+			if err != nil {
+				return err
+			}
 			m := tuiModel{
 				sessions:     items,
 				home:         home,
@@ -126,6 +142,7 @@ func newTUICmd() *cobra.Command {
 				status:       "Ready. Press q to quit.",
 				previewCache: make(map[string][]string),
 				focus:        focusTree,
+				groupBy:      mode,
 			}
 			m.rebuildTree()
 			_, err = tea.NewProgram(m, tea.WithAltScreen()).Run()
@@ -135,6 +152,7 @@ func newTUICmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&sessionsRoot, "sessions-root", "", "sessions root directory")
 	cmd.Flags().IntVar(&limit, "limit", 100, "max sessions loaded into TUI (0 means unlimited)")
+	cmd.Flags().StringVar(&groupBy, "group-by", "month", "tree group key: month|day|health|host|none")
 	return cmd
 }
 
@@ -260,11 +278,10 @@ func (m tuiModel) View() string {
 		Padding(0, 1)
 	keysOuterH := 3
 	keysInnerW := max(20, totalW-keysPanelStyle.GetHorizontalFrameSize())
-	keybarBody := "[KEYS] Tab/h/l t/p/1/2 switch pane | j/k scroll active pane | g/G top/bottom | Ctrl+d/u preview page | d dry-run | q quit"
 	keybar := keysPanelStyle.
 		Width(keysInnerW).
 		Bold(true).
-		Render(truncateDisplay(keybarBody, keysInnerW))
+		Render(renderKeysLine(keysInnerW))
 
 	if m.width > 0 && m.height > 0 && (m.width < tuiMinWidth || m.height < tuiMinHeight) {
 		msg := fmt.Sprintf(
@@ -347,7 +364,10 @@ func (m tuiModel) View() string {
 	leftW := max(12, leftOuterW-leftBase.GetHorizontalFrameSize())
 	rightW := max(12, rightOuterW-rightBase.GetHorizontalFrameSize())
 
-	leftTitleText := "SESSIONS (By Month)"
+	leftTitleText := "SESSIONS"
+	if gb := strings.ToLower(strings.TrimSpace(m.groupBy)); gb != "" && gb != "none" {
+		leftTitleText = fmt.Sprintf("SESSIONS (By %s)", strings.ToUpper(gb[:1])+gb[1:])
+	}
 	rightTitleText := "PREVIEW"
 	if m.focus == focusTree {
 		leftTitleText += " *"
@@ -366,25 +386,32 @@ func (m tuiModel) View() string {
 	start, end := m.visibleRange()
 	for i := start; i < end; i++ {
 		item := m.tree[i]
-		line := item.label
-		if item.indent > 0 {
-			line = strings.Repeat("  ", item.indent) + line
+		if item.kind == treeItemMonth {
+			line := truncateDisplay(item.label, leftW-4)
+			line = lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow)).Render(line)
+			leftLines = append(leftLines, "  "+line)
+			continue
 		}
-		line = truncateDisplay(line, leftW-4)
+
+		connector := "├─"
+		if i+1 >= len(m.tree) || m.tree[i+1].kind == treeItemMonth {
+			connector = "└─"
+		}
+		connectorPart := lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment)).Render("  " + connector + " ")
+		idWidth := max(4, leftW-10)
+		idText := truncateDisplay(item.label, idWidth)
+
 		if i == m.cursor {
 			if m.focus == focusTree {
-				line = lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoBg)).Background(lipgloss.Color(tokyoCyan)).Bold(true).Render(line)
-				line = lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoCyan)).Render("▌") + " " + line
+				idText = lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoBg)).Background(lipgloss.Color(tokyoCyan)).Bold(true).Render(idText)
+				leftLines = append(leftLines, lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoCyan)).Render("▌")+" "+connectorPart+idText)
 			} else {
-				line = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoBlue)).Render("▏ " + line)
+				idText = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoBlue)).Render(idText)
+				leftLines = append(leftLines, lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoBlue)).Render("▏")+" "+connectorPart+idText)
 			}
 		} else {
-			if item.kind == treeItemMonth {
-				line = lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow)).Render(line)
-			}
-			line = "  " + line
+			leftLines = append(leftLines, "  "+connectorPart+idText)
 		}
-		leftLines = append(leftLines, line)
 	}
 
 	selected, ok := m.selectedSession()
@@ -547,25 +574,26 @@ func sortTUISessions(items []session.Session) {
 
 func (m *tuiModel) rebuildTree() {
 	m.tree = make([]treeItem, 0, len(m.sessions)+16)
-	currentMonth := ""
+	mode := strings.ToLower(strings.TrimSpace(m.groupBy))
+	if mode == "" {
+		mode = "month"
+	}
+	currentGroup := ""
 	for i, s := range m.sessions {
-		month := s.UpdatedAt.Format("2006-01")
-		if month == "0001-01" {
-			month = "unknown"
-		}
-		if month != currentMonth {
-			currentMonth = month
+		group := m.groupKeyForSession(s, mode)
+		if mode != "none" && group != currentGroup {
+			currentGroup = group
 			m.tree = append(m.tree, treeItem{
 				kind:   treeItemMonth,
-				label:  "▾ " + month,
-				month:  month,
+				label:  "▾ " + group,
+				month:  group,
 				indent: 0,
 			})
 		}
 		m.tree = append(m.tree, treeItem{
 			kind:   treeItemSession,
-			label:  "└─ " + shortID(s.SessionID),
-			month:  month,
+			label:  shortID(s.SessionID),
+			month:  group,
 			index:  i,
 			indent: 1,
 		})
@@ -573,6 +601,49 @@ func (m *tuiModel) rebuildTree() {
 	m.cursor = 0
 	m.skipToSelectable(1)
 	m.syncPreviewSelection()
+}
+
+func (m *tuiModel) groupKeyForSession(s session.Session, mode string) string {
+	switch mode {
+	case "none":
+		return ""
+	case "day":
+		if s.UpdatedAt.IsZero() {
+			return "unknown-day"
+		}
+		return s.UpdatedAt.Local().Format("2006-01-02")
+	case "health":
+		if strings.TrimSpace(string(s.Health)) == "" {
+			return "unknown-health"
+		}
+		return string(s.Health)
+	case "host":
+		host := compactHomePath(s.HostDir, m.home)
+		if strings.TrimSpace(host) == "" {
+			return "unknown-host"
+		}
+		return host
+	case "month":
+		fallthrough
+	default:
+		if s.UpdatedAt.IsZero() {
+			return "unknown-month"
+		}
+		return s.UpdatedAt.Format("2006-01")
+	}
+}
+
+func normalizeTUIGroupBy(v string) (string, error) {
+	mode := strings.ToLower(strings.TrimSpace(v))
+	if mode == "" {
+		mode = "month"
+	}
+	switch mode {
+	case "month", "day", "health", "host", "none":
+		return mode, nil
+	default:
+		return "", fmt.Errorf("invalid --group-by %q (allowed: month, day, health, host, none)", v)
+	}
 }
 
 func (m *tuiModel) skipToSelectable(step int) {
@@ -615,6 +686,7 @@ func (m *tuiModel) detailRows(selected session.Session) (header string, values s
 		host = "-"
 	}
 	contentWidth := max(40, m.width-4)
+	hostW := max(18, minInt(36, contentWidth/3))
 	cols := []struct {
 		name string
 		val  string
@@ -624,13 +696,17 @@ func (m *tuiModel) detailRows(selected session.Session) (header string, values s
 		{name: "UPDATED", val: formatDisplayTime(selected.UpdatedAt), w: 19},
 		{name: "SIZE", val: formatBytesIEC(selected.SizeBytes), w: 8},
 		{name: "HEALTH", val: string(selected.Health), w: 12},
-		{name: "HOST", val: host, w: max(14, minInt(24, contentWidth/5))},
+		{name: "HOST", val: previewHostPath(host, hostW), w: hostW},
 	}
 
 	var headerParts []string
 	var valueParts []string
 	for _, c := range cols {
 		headerParts = append(headerParts, fitCell(c.name, c.w))
+		if c.name == "HOST" {
+			valueParts = append(valueParts, fitCellMiddle(c.val, c.w))
+			continue
+		}
 		valueParts = append(valueParts, fitCell(c.val, c.w))
 	}
 	return strings.Join(headerParts, "  "), strings.Join(valueParts, "  ")
@@ -779,6 +855,20 @@ func fitCell(v string, width int) string {
 	return v + strings.Repeat(" ", width-w)
 }
 
+func fitCellMiddle(v string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if runewidth.StringWidth(v) > width {
+		v = truncateMiddleDisplay(v, width)
+	}
+	w := runewidth.StringWidth(v)
+	if w >= width {
+		return v
+	}
+	return v + strings.Repeat(" ", width-w)
+}
+
 func wrapText(v string, width int) []string {
 	if width <= 0 {
 		return []string{v}
@@ -871,6 +961,64 @@ func truncateDisplay(v string, width int) string {
 	return b.String()
 }
 
+func truncateMiddleDisplay(v string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if runewidth.StringWidth(v) <= width {
+		return v
+	}
+	if width <= 3 {
+		return truncateDisplay(v, width)
+	}
+	leftTarget := (width - 3) / 2
+	rightTarget := width - 3 - leftTarget
+	left := takeDisplayPrefix(v, leftTarget)
+	right := takeDisplaySuffix(v, rightTarget)
+	return left + "..." + right
+}
+
+func takeDisplayPrefix(v string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	var b strings.Builder
+	current := 0
+	for _, r := range v {
+		rw := runewidth.RuneWidth(r)
+		if rw <= 0 {
+			rw = 1
+		}
+		if current+rw > width {
+			break
+		}
+		b.WriteRune(r)
+		current += rw
+	}
+	return b.String()
+}
+
+func takeDisplaySuffix(v string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	runes := []rune(v)
+	current := 0
+	start := len(runes)
+	for i := len(runes) - 1; i >= 0; i-- {
+		rw := runewidth.RuneWidth(runes[i])
+		if rw <= 0 {
+			rw = 1
+		}
+		if current+rw > width {
+			break
+		}
+		current += rw
+		start = i
+	}
+	return string(runes[start:])
+}
+
 func withEllipsis(v string, width int) string {
 	if width <= 0 {
 		return ""
@@ -884,6 +1032,63 @@ func withEllipsis(v string, width int) string {
 	return truncateDisplay(v, width-3) + "..."
 }
 
+func previewHostPath(host string, width int) string {
+	if width <= 0 || host == "" {
+		return host
+	}
+	if runewidth.StringWidth(host) <= width {
+		return host
+	}
+
+	segs := strings.Split(strings.Trim(host, "/"), "/")
+	if len(segs) >= 2 {
+		tail := segs[len(segs)-2] + "/" + segs[len(segs)-1]
+		if strings.HasPrefix(host, "~/") {
+			candidate := "~/.../" + tail
+			if runewidth.StringWidth(candidate) <= width {
+				return candidate
+			}
+		} else {
+			candidate := ".../" + tail
+			if runewidth.StringWidth(candidate) <= width {
+				return candidate
+			}
+		}
+	}
+	return truncateMiddleDisplay(host, width)
+}
+
+func renderKeysLine(width int) string {
+	plain := "[KEYS] Tab/h/l t/p/1/2 switch pane | j/k scroll | g/G top/bottom | Ctrl+d/u preview | d dry-run | q quit"
+	if width <= 0 {
+		return plain
+	}
+	if width < 72 {
+		return truncateDisplay(plain, width)
+	}
+	parts := []string{
+		lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoMagenta)).Render("[KEYS]"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoCyan)).Render(" Tab/h/l t/p/1/2 "),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment)).Render("switch pane"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow)).Render(" | "),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoTeal)).Render("j/k"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment)).Render(" scroll"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow)).Render(" | "),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoBlue)).Render("g/G"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment)).Render(" top/bottom"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow)).Render(" | "),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoGreen)).Render("Ctrl+d/u"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment)).Render(" preview"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow)).Render(" | "),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoOrange)).Render("d"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment)).Render(" dry-run"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow)).Render(" | "),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoRed)).Render("q"),
+		lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoComment)).Render(" quit"),
+	}
+	return strings.Join(parts, "")
+}
+
 func highlightAngleTags(v string) string {
 	if strings.TrimSpace(v) == "" {
 		return v
@@ -893,8 +1098,11 @@ func highlightAngleTags(v string) string {
 		return v
 	}
 
-	strong := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoOrange))
-	soft := lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow))
+	styleDefault := lipgloss.NewStyle().Foreground(lipgloss.Color(tokyoYellow))
+	styleSystem := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoCyan))
+	styleLifecycle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoTeal))
+	styleDanger := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoOrange))
+	styleSuccess := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(tokyoGreen))
 
 	var b strings.Builder
 	last := 0
@@ -903,10 +1111,17 @@ func highlightAngleTags(v string) string {
 			b.WriteString(v[last:m[0]])
 		}
 		tag := v[m[0]:m[1]]
-		if strings.Contains(tag, "abort") || strings.Contains(tag, "error") || strings.Contains(tag, "fail") {
-			b.WriteString(strong.Render(tag))
-		} else {
-			b.WriteString(soft.Render(tag))
+		switch classifyAngleTag(tag) {
+		case angleTagToneDanger:
+			b.WriteString(styleDanger.Render(tag))
+		case angleTagToneSystem:
+			b.WriteString(styleSystem.Render(tag))
+		case angleTagToneLifecycle:
+			b.WriteString(styleLifecycle.Render(tag))
+		case angleTagToneSuccess:
+			b.WriteString(styleSuccess.Render(tag))
+		default:
+			b.WriteString(styleDefault.Render(tag))
 		}
 		last = m[1]
 	}
@@ -914,6 +1129,36 @@ func highlightAngleTags(v string) string {
 		b.WriteString(v[last:])
 	}
 	return b.String()
+}
+
+func classifyAngleTag(tag string) angleTagTone {
+	name := strings.TrimSpace(tag)
+	name = strings.TrimPrefix(name, "<")
+	name = strings.TrimSuffix(name, ">")
+	name = strings.TrimSpace(name)
+	name = strings.TrimPrefix(name, "/")
+	if i := strings.IndexAny(name, " \t"); i >= 0 {
+		name = name[:i]
+	}
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return angleTagToneDefault
+	}
+
+	if strings.Contains(name, "error") || strings.Contains(name, "fail") || strings.Contains(name, "abort") || strings.Contains(name, "panic") {
+		return angleTagToneDanger
+	}
+	if strings.Contains(name, "ok") || strings.Contains(name, "success") || strings.Contains(name, "done") {
+		return angleTagToneSuccess
+	}
+	if strings.Contains(name, "mode") || strings.Contains(name, "context") || strings.Contains(name, "permission") || strings.Contains(name, "sandbox") || strings.Contains(name, "instruction") {
+		return angleTagToneSystem
+	}
+	if strings.Contains(name, "turn") || strings.Contains(name, "session") || strings.Contains(name, "meta") || strings.Contains(name, "event") {
+		return angleTagToneLifecycle
+	}
+
+	return angleTagToneDefault
 }
 
 func (m *tuiModel) syncPreviewSelection() {

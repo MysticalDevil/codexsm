@@ -193,3 +193,92 @@ func TestPreviewForLineWidthBound(t *testing.T) {
 		})
 	}
 }
+
+func TestClassifyAngleTag(t *testing.T) {
+	tests := []struct {
+		tag  string
+		want angleTagTone
+	}{
+		{tag: "<turn_aborted>", want: angleTagToneDanger},
+		{tag: "</turn_aborted>", want: angleTagToneDanger},
+		{tag: "<environment_context>", want: angleTagToneSystem},
+		{tag: "<collaboration_mode>", want: angleTagToneSystem},
+		{tag: "<session_meta>", want: angleTagToneLifecycle},
+		{tag: "<operation_done>", want: angleTagToneSuccess},
+		{tag: "<generic_tag>", want: angleTagToneDefault},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.tag, func(t *testing.T) {
+			if got := classifyAngleTag(tt.tag); got != tt.want {
+				t.Fatalf("classifyAngleTag(%q)=%v, want=%v", tt.tag, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeTUIGroupBy(t *testing.T) {
+	okCases := []string{"month", "day", "health", "host", "none", ""}
+	for _, in := range okCases {
+		got, err := normalizeTUIGroupBy(in)
+		if err != nil {
+			t.Fatalf("normalizeTUIGroupBy(%q) error: %v", in, err)
+		}
+		if in == "" && got != "month" {
+			t.Fatalf("expected default month, got %q", got)
+		}
+	}
+	if _, err := normalizeTUIGroupBy("invalid"); err == nil {
+		t.Fatal("expected error for invalid group-by")
+	}
+}
+
+func TestRebuildTreeGroupingModes(t *testing.T) {
+	sessions := []session.Session{
+		{SessionID: "s1", UpdatedAt: time.Date(2026, 3, 5, 10, 0, 0, 0, time.Local), Health: session.HealthOK, HostDir: "/tmp/a"},
+		{SessionID: "s2", UpdatedAt: time.Date(2026, 3, 5, 11, 0, 0, 0, time.Local), Health: session.HealthCorrupted, HostDir: "/tmp/b"},
+		{SessionID: "s3", UpdatedAt: time.Date(2026, 2, 1, 9, 0, 0, 0, time.Local), Health: session.HealthOK, HostDir: "/tmp/a"},
+	}
+
+	tests := []struct {
+		mode             string
+		expectGroupNodes bool
+	}{
+		{mode: "month", expectGroupNodes: true},
+		{mode: "day", expectGroupNodes: true},
+		{mode: "health", expectGroupNodes: true},
+		{mode: "host", expectGroupNodes: true},
+		{mode: "none", expectGroupNodes: false},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.mode, func(t *testing.T) {
+			m := tuiModel{
+				sessions: sessions,
+				groupBy:  tc.mode,
+				home:     "",
+			}
+			m.rebuildTree()
+			groupCount := 0
+			sessionCount := 0
+			for _, n := range m.tree {
+				if n.kind == treeItemMonth {
+					groupCount++
+				}
+				if n.kind == treeItemSession {
+					sessionCount++
+				}
+			}
+			if sessionCount != len(sessions) {
+				t.Fatalf("session node count=%d, want=%d", sessionCount, len(sessions))
+			}
+			if tc.expectGroupNodes && groupCount == 0 {
+				t.Fatalf("expected group nodes for mode=%s", tc.mode)
+			}
+			if !tc.expectGroupNodes && groupCount != 0 {
+				t.Fatalf("expected no group nodes for mode=%s, got=%d", tc.mode, groupCount)
+			}
+		})
+	}
+}
