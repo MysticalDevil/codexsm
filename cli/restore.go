@@ -44,6 +44,8 @@ func newRestoreCmd() *cobra.Command {
 		confirm      bool
 		yes          bool
 		interactive  bool
+		previewMode  string
+		previewLimit int
 		maxBatch     int
 	)
 
@@ -77,6 +79,10 @@ func newRestoreCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			mode, err := parsePreviewMode(previewMode)
+			if err != nil {
+				return err
+			}
 			if !sel.HasAnyFilter() {
 				return WithExitCode(errors.New("restore requires at least one selector (--id/--id-prefix/--host-contains/--path-contains/--head-contains/--older-than/--health)"), 1)
 			}
@@ -88,6 +94,9 @@ func newRestoreCmd() *cobra.Command {
 			}
 			candidates := session.FilterSessions(sessions, sel, time.Now())
 			lg.Info("matched restore candidates", "count", len(candidates), "dry_run", dryRun)
+			if !dryRun {
+				printRestorePreview(cmd, candidates, mode, previewLimit)
+			}
 
 			if !dryRun && interactive && !yes && len(candidates) > 0 {
 				ok, err := interactiveConfirmRestore(cmd, len(candidates))
@@ -163,6 +172,8 @@ func newRestoreCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&confirm, "confirm", false, "required for real restore")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip interactive prompt and approve restore")
 	cmd.Flags().BoolVar(&interactive, "interactive-confirm", true, "prompt for interactive confirmation on real restore")
+	cmd.Flags().StringVarP(&previewMode, "preview", "P", "sample", "preview mode before real restore: full|sample|none")
+	cmd.Flags().IntVarP(&previewLimit, "preview-limit", "L", 20, "number of matched sessions shown when --preview=sample")
 	cmd.Flags().IntVar(&maxBatch, "max-batch", 50, "max sessions allowed for one real restore command")
 
 	return cmd
@@ -272,6 +283,34 @@ func printRestoreSummary(cmd *cobra.Command, s restoreSummary) {
 			continue
 		}
 		_, _ = fmt.Fprintf(out, "%s %s %s err=%s\n", r.Status, r.SessionID, r.Path, r.Error)
+	}
+}
+
+func printRestorePreview(cmd *cobra.Command, candidates []session.Session, mode previewMode, previewLimit int) {
+	if mode == previewNone {
+		return
+	}
+	var totalBytes int64
+	for _, s := range candidates {
+		totalBytes += s.SizeBytes
+	}
+	sampleLimit := previewLimit
+	if mode == previewFull {
+		sampleLimit = len(candidates)
+	}
+	if sampleLimit < 0 {
+		sampleLimit = 0
+	}
+	logger().Debug("restore preview generated", "matched", len(candidates), "affected_bytes", totalBytes, "preview_mode", mode, "preview_limit", sampleLimit)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "preview action=restore matched=%d affected=%s mode=%s\n", len(candidates), formatBytesIEC(totalBytes), mode)
+	for i, s := range candidates {
+		if i >= sampleLimit {
+			break
+		}
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  - %s %s\n", shortID(s.SessionID), s.Path)
+	}
+	if mode == previewSample && len(candidates) > sampleLimit {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ... and %d more\n", len(candidates)-sampleLimit)
 	}
 }
 

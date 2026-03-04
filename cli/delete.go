@@ -33,6 +33,7 @@ func newDeleteCmd() *cobra.Command {
 		yes          bool
 		hard         bool
 		interactive  bool
+		previewMode  string
 		previewLimit int
 		maxBatch     int
 	)
@@ -68,6 +69,10 @@ func newDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			mode, err := parsePreviewMode(previewMode)
+			if err != nil {
+				return err
+			}
 
 			sessions, err := session.ScanSessions(sessionsRoot)
 			if err != nil {
@@ -76,7 +81,7 @@ func newDeleteCmd() *cobra.Command {
 			candidates := session.FilterSessions(sessions, sel, time.Now())
 			lg.Info("matched delete candidates", "count", len(candidates), "dry_run", dryRun, "hard", hard)
 			if !dryRun {
-				printDeletePreview(cmd, candidates, hard, previewLimit)
+				printDeletePreview(cmd, candidates, hard, mode, previewLimit)
 			}
 
 			if !dryRun && interactive && !yes && len(candidates) > 0 {
@@ -157,7 +162,8 @@ func newDeleteCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip interactive prompt and approve delete")
 	cmd.Flags().BoolVar(&hard, "hard", false, "hard delete (permanent)")
 	cmd.Flags().BoolVar(&interactive, "interactive-confirm", true, "prompt for interactive confirmation on real delete")
-	cmd.Flags().IntVar(&previewLimit, "preview-limit", 5, "number of matched sessions shown before real delete")
+	cmd.Flags().StringVarP(&previewMode, "preview", "P", "sample", "preview mode before real delete: full|sample|none")
+	cmd.Flags().IntVarP(&previewLimit, "preview-limit", "L", 20, "number of matched sessions shown when --preview=sample")
 	cmd.Flags().IntVar(&maxBatch, "max-batch", 50, "max sessions allowed for one real delete command")
 
 	return cmd
@@ -183,28 +189,56 @@ func printDeleteSummary(cmd *cobra.Command, s session.DeleteSummary) {
 	}
 }
 
-func printDeletePreview(cmd *cobra.Command, candidates []session.Session, hard bool, previewLimit int) {
-	if previewLimit < 0 {
-		previewLimit = 0
+type previewMode string
+
+const (
+	previewFull   previewMode = "full"
+	previewSample previewMode = "sample"
+	previewNone   previewMode = "none"
+)
+
+func parsePreviewMode(v string) (previewMode, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "", string(previewSample):
+		return previewSample, nil
+	case string(previewFull):
+		return previewFull, nil
+	case string(previewNone):
+		return previewNone, nil
+	default:
+		return "", fmt.Errorf("invalid --preview %q (allowed: full, sample, none)", v)
 	}
-	mode := "soft-delete"
+}
+
+func printDeletePreview(cmd *cobra.Command, candidates []session.Session, hard bool, mode previewMode, previewLimit int) {
+	if mode == previewNone {
+		return
+	}
+	action := "soft-delete"
 	if hard {
-		mode = "hard-delete"
+		action = "hard-delete"
 	}
 	var totalBytes int64
 	for _, s := range candidates {
 		totalBytes += s.SizeBytes
 	}
-	logger().Debug("delete preview generated", "matched", len(candidates), "affected_bytes", totalBytes, "preview_limit", previewLimit, "hard", hard)
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "preview action=%s matched=%d affected=%s\n", mode, len(candidates), formatBytesIEC(totalBytes))
+	sampleLimit := previewLimit
+	if mode == previewFull {
+		sampleLimit = len(candidates)
+	}
+	if sampleLimit < 0 {
+		sampleLimit = 0
+	}
+	logger().Debug("delete preview generated", "matched", len(candidates), "affected_bytes", totalBytes, "preview_mode", mode, "preview_limit", sampleLimit, "hard", hard)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "preview action=%s matched=%d affected=%s mode=%s\n", action, len(candidates), formatBytesIEC(totalBytes), mode)
 	for i, s := range candidates {
-		if i >= previewLimit {
+		if i >= sampleLimit {
 			break
 		}
 		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  - %s %s\n", shortID(s.SessionID), s.Path)
 	}
-	if len(candidates) > previewLimit {
-		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ... and %d more\n", len(candidates)-previewLimit)
+	if mode == previewSample && len(candidates) > sampleLimit {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  ... and %d more\n", len(candidates)-sampleLimit)
 	}
 }
 
