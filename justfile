@@ -28,6 +28,16 @@ test-integration:
 
 test-all: test test-integration
 
+cover-unit:
+  {{goexperiment}} {{go}} test -count=1 ./... -coverprofile=coverage_unit.out
+  {{go}} tool cover -func=coverage_unit.out
+
+cover-integration:
+  {{goexperiment}} {{go}} test -count=1 -tags=integration ./cli -coverprofile=coverage_integration.out
+  {{go}} tool cover -func=coverage_integration.out
+
+cover: cover-unit cover-integration
+
 build:
   {{goexperiment}} {{go}} build -o codex-sm .
 

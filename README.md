@@ -142,6 +142,9 @@ just lint
 just test            # unit tests
 just test-integration
 just test-all
+just cover
+just cover-unit
+just cover-integration
 just check
 ```
 
