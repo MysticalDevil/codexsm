@@ -65,6 +65,9 @@ jobs:
         run: |
           ./codexsm restore --help | grep -q -- "--batch-id"
           ./codexsm delete --help | grep -q -- "--preview"
+          ./codexsm config --help | grep -q -- "show"
+          ./codexsm config --help | grep -q -- "validate"
+          CSM_CONFIG=/tmp/codexsm-ci-config.json ./codexsm config init --dry-run | grep -q -- "\"sessions_root\""
           if ./codexsm restore --batch-id b-test --id deadbeef >/tmp/codexsm-restore-conflict.log 2>&1; then
             echo "expected restore conflict to fail"
             exit 1
