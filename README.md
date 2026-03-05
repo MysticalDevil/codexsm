@@ -267,7 +267,7 @@ just cover-unit
 just cover-integration
 just cover-gate
 just check
-just check-release 0.1.6
+just check-release 0.1.7
 
 # Coverage requirements
 # - unit >= 50%
