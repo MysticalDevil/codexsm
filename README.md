@@ -22,6 +22,48 @@ Project design notes:
 > export GOEXPERIMENT=jsonv2
 > ```
 
+## Install
+
+Preferred (Go):
+
+```bash
+GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.1.8
+```
+
+With `mise`:
+
+```bash
+GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.1.8
+```
+
+Note:
+
+- The installed binary name is `codexsm`.
+
+## Build
+
+When building/testing from source, enable:
+
+```bash
+export GOEXPERIMENT=jsonv2
+```
+
+```bash
+just build
+```
+
+Or:
+
+```bash
+GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.8" -o codexsm .
+```
+
+Default local build version is `dev`. Set `VERSION` for release builds:
+
+```bash
+VERSION=0.1.8 just build
+```
+
 It provides:
 
 - Session listing (`list`)
@@ -122,48 +164,6 @@ Common color keys for `tui.colors` / `--theme-color`:
 - `info_header`, `info_value`, `status`
 - `prefix_user`, `prefix_assistant`, `prefix_other`, `prefix_default`
 - `tag_default`, `tag_system`, `tag_lifecycle`, `tag_danger`, `tag_success`
-
-## Build
-
-When building/testing from source, enable:
-
-```bash
-export GOEXPERIMENT=jsonv2
-```
-
-```bash
-just build
-```
-
-Or:
-
-```bash
-GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.7" -o codexsm .
-```
-
-Default local build version is `dev`. Set `VERSION` for release builds:
-
-```bash
-VERSION=0.1.7 just build
-```
-
-## Install
-
-Preferred (Go):
-
-```bash
-GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.1.7
-```
-
-With `mise`:
-
-```bash
-GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.1.7
-```
-
-Note:
-
-- The installed binary name is `codexsm`.
 
 ## Quick Start
 
@@ -267,7 +267,7 @@ just cover-unit
 just cover-integration
 just cover-gate
 just check
-just check-release 0.1.7
+just check-release 0.1.8
 
 # Coverage requirements
 # - unit >= 50%
