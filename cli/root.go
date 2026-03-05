@@ -24,10 +24,11 @@ func NewRootCmd() *cobra.Command {
 		Long: "codexsm manages local Codex sessions.\n\n" +
 			"Build/install requires GOEXPERIMENT=jsonv2.\n\n" +
 			"Use `codexsm help <command>` to view details for a subcommand.\n" +
-			"Examples: `codexsm help delete`, `codexsm help list`, `codexsm help group`, `codexsm help doctor`, `codexsm help version`.",
+			"Examples: `codexsm help delete`, `codexsm help list`, `codexsm help group`, `codexsm help config`, `codexsm help doctor`, `codexsm help version`.",
 		Example: "  codexsm list\n" +
 			"  codexsm tui\n" +
 			"  codexsm group --by day\n" +
+			"  codexsm config show --resolved\n" +
 			"  codexsm delete --id <session_id>\n" +
 			"  codexsm doctor\n" +
 			"  codexsm version --short\n" +
@@ -49,6 +50,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(newGroupCmd())
 	cmd.AddCommand(newDeleteCmd())
 	cmd.AddCommand(newRestoreCmd())
+	cmd.AddCommand(newConfigCmd())
 	cmd.AddCommand(newTUICmd())
 	cmd.AddCommand(newVersionCmd())
 	cmd.AddCommand(newDoctorCmd())
