@@ -2,10 +2,14 @@
 
 `codexsm` is a safety-first local Codex session manager written in Go.
 
-- Architecture: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
-- Command Guide: [docs/COMMANDS.md](./docs/COMMANDS.md)
-- Docs Index: [docs/INDEX.md](./docs/INDEX.md)
-- Changelog: [CHANGELOG.md](./CHANGELOG.md)
+## Quick Links
+
+| Topic | Link |
+| --- | --- |
+| Architecture | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) |
+| Command Guide | [docs/COMMANDS.md](./docs/COMMANDS.md) |
+| Docs Index | [docs/INDEX.md](./docs/INDEX.md) |
+| Changelog | [CHANGELOG.md](./CHANGELOG.md) |
 
 ## Compatibility
 
@@ -54,7 +58,17 @@ codexsm delete --id-prefix 019ca9
 codexsm restore --id-prefix 019ca9
 ```
 
-For full command examples and flags, see [docs/COMMANDS.md](./docs/COMMANDS.md).
+> [!TIP]
+> For complete examples and command flags, use [docs/COMMANDS.md](./docs/COMMANDS.md).
+
+## At A Glance
+
+| Area | Summary |
+| --- | --- |
+| Browse | `list`, `group`, and `tui` for session discovery |
+| Safety | `dry-run` by default, explicit `--confirm` for real actions |
+| Recovery | `batch_id`-based rollback with `restore --batch-id` |
+| Diagnostics | `doctor` and `config` validation tooling |
 
 ## Core Features
 
@@ -71,6 +85,9 @@ For full command examples and flags, see [docs/COMMANDS.md](./docs/COMMANDS.md).
 - Multi-target real execution requires additional approval (`--yes` or interactive confirmation).
 - Soft-delete is default; hard delete is explicit (`--hard`).
 - Operation logs include `batch_id` for audit and rollback.
+
+> [!NOTE]
+> Recommended flow: preview first, then real execution with explicit confirmation.
 
 ## Configuration
 

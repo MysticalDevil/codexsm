@@ -13,6 +13,28 @@ Known hot spot:
 
 `codexsm` follows a layered approach:
 
+```text
++-----------------------------+
+| main.go                     |
+| cli/root.go                 |
++-------------+---------------+
+              |
+              v
++-----------------------------+
+| CLI Commands (cli/*)        |
+| list/group/delete/restore   |
+| doctor/config/tui bridge    |
++-------------+---------------+
+              |
+      +-------+-------+
+      |               |
+      v               v
++-----------+   +-------------------+
+| tui/*     |   | session/audit/... |
+| UI logic  |   | domain + storage  |
++-----------+   +-------------------+
+```
+
 1. Entry and command wiring:
 - `main.go`
 - `cli/root.go`
@@ -59,6 +81,12 @@ Rules:
 - destructive actions default to simulation (`dry-run`) paths.
 - action logging stays centralized in `audit`.
 - each batch operation is tagged with a `batch_id` for traceability and rollback.
+
+Boundary intent:
+
+- `cli/*` should stay thin orchestration and output adaptation.
+- `tui/*` should own interaction state, key handling, and rendering.
+- `session/*`, `audit/*`, and `config/*` should remain reusable by both CLI and TUI.
 
 Rollback flow:
 

@@ -1,5 +1,17 @@
 # Command Guide
 
+## Command Matrix
+
+| Command | Purpose | Safe Default |
+| --- | --- | --- |
+| `list` | list sessions | read-only |
+| `group` | aggregate sessions by key | read-only |
+| `tui` | interactive browse/manage | dry-run actions |
+| `delete` | delete or soft-delete sessions | `--dry-run=true` |
+| `restore` | restore from trash | `--dry-run=true` |
+| `doctor` | environment/config checks | read-only |
+| `config` | inspect/init/validate config | read-only except `init` |
+
 ## Common Commands
 
 ```bash
@@ -50,6 +62,9 @@ TUI keys (default):
 - `y/n`: confirm/cancel pending action
 - `q`: quit
 
+> [!TIP]
+> Use `t` / `p` (or `1` / `2`) to explicitly focus tree/preview panes.
+
 ## Delete And Restore
 
 Selectors:
@@ -68,6 +83,9 @@ Safety rules:
 - `delete` and `restore` default to dry-run.
 - Real execution requires `--dry-run=false --confirm`.
 - Multi-target real execution requires approval (`--yes` or interactive confirmation).
+
+> [!WARNING]
+> Run one dry-run preview before real delete/restore whenever selector scope is broad.
 
 Examples:
 
