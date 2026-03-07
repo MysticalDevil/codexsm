@@ -375,7 +375,7 @@ func TestGroupKeyForSession(t *testing.T) {
 	if got := m.groupKeyForSession(s, "day"); got == "" || !strings.Contains(got, "2026-03-05") {
 		t.Fatalf("day group key unexpected: %q", got)
 	}
-	if got := m.groupKeyForSession(s, "health"); got != string(session.HealthOK) {
+	if got := m.groupKeyForSession(s, "health"); got != strings.ToUpper(string(session.HealthOK)) {
 		t.Fatalf("health group key unexpected: %q", got)
 	}
 	if got := m.groupKeyForSession(s, "host"); got == "" || !strings.Contains(got, "~/work/project") {
@@ -383,6 +383,34 @@ func TestGroupKeyForSession(t *testing.T) {
 	}
 	if got := m.groupKeyForSession(s, "none"); got != "" {
 		t.Fatalf("none group key expected empty, got %q", got)
+	}
+}
+
+func TestDetailRowsColorsHealthValue(t *testing.T) {
+	m := tuiModel{width: 120, home: "/home/omega"}
+	okSession := session.Session{
+		SessionID: "ok-id",
+		UpdatedAt: time.Date(2026, 3, 8, 10, 0, 0, 0, time.Local),
+		Health:    session.HealthOK,
+		HostDir:   "/home/omega/work/project",
+	}
+	badSession := session.Session{
+		SessionID: "bad-id",
+		UpdatedAt: okSession.UpdatedAt,
+		Health:    session.HealthCorrupted,
+		HostDir:   okSession.HostDir,
+	}
+
+	_, okRow := m.detailRows(okSession)
+	_, badRow := m.detailRows(badSession)
+	if !strings.Contains(okRow, "OK") || !strings.Contains(badRow, "CORRUPTED") {
+		t.Fatalf("expected health text in rows, got ok=%q bad=%q", okRow, badRow)
+	}
+	if got := m.healthColorHex(session.HealthOK); got != m.colorHex("tag_success") {
+		t.Fatalf("healthColorHex(ok) mismatch: %q", got)
+	}
+	if got := m.healthColorHex(session.HealthCorrupted); got != m.colorHex("tag_danger") {
+		t.Fatalf("healthColorHex(corrupted) mismatch: %q", got)
 	}
 }
 

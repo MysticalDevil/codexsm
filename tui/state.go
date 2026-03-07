@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/MysticalDevil/codexsm/session"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (m *tuiModel) visibleRows() int {
@@ -130,7 +131,7 @@ func (m *tuiModel) groupKeyForSession(s session.Session, mode string) string {
 		if strings.TrimSpace(string(s.Health)) == "" {
 			return "unknown-health"
 		}
-		return string(s.Health)
+		return strings.ToUpper(string(s.Health))
 	case "host":
 		host := compactHomePath(s.HostDir, m.home)
 		if strings.TrimSpace(host) == "" {
@@ -232,7 +233,7 @@ func (m *tuiModel) detailRows(selected session.Session) (header string, values s
 		{name: "ID", val: shortID(selected.SessionID), w: 12},
 		{name: "UPDATED", val: formatDisplayTime(selected.UpdatedAt), w: 19},
 		{name: "SIZE", val: formatBytesIEC(selected.SizeBytes), w: 8},
-		{name: "HEALTH", val: string(selected.Health), w: 12},
+		{name: "HEALTH", val: strings.ToUpper(string(selected.Health)), w: 12},
 		{name: "HOST", val: previewHostPath(host, hostW), w: hostW},
 	}
 
@@ -244,9 +245,29 @@ func (m *tuiModel) detailRows(selected session.Session) (header string, values s
 			valueParts = append(valueParts, fitCellMiddle(c.val, c.w))
 			continue
 		}
-		valueParts = append(valueParts, fitCell(c.val, c.w))
+		cell := fitCell(c.val, c.w)
+		if c.name == "HEALTH" {
+			cell = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color(m.healthColorHex(selected.Health))).
+				Render(cell)
+		}
+		valueParts = append(valueParts, cell)
 	}
 	return strings.Join(headerParts, "  "), strings.Join(valueParts, "  ")
+}
+
+func (m *tuiModel) healthColorHex(h session.Health) string {
+	switch h {
+	case session.HealthOK:
+		return m.colorHex("tag_success")
+	case session.HealthCorrupted:
+		return m.colorHex("tag_danger")
+	case session.HealthMissingMeta:
+		return m.colorHex("tag_default")
+	default:
+		return m.colorHex("info_value")
+	}
 }
 
 func (m *tuiModel) syncPreviewSelection() {

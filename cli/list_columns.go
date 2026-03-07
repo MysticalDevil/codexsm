@@ -85,7 +85,7 @@ func listColumnValue(key string, s session.Session, home string, headWidth int, 
 	case "size_bytes":
 		return fmt.Sprintf("%d", s.SizeBytes)
 	case "health":
-		return string(s.Health)
+		return strings.ToUpper(string(s.Health))
 	case "host", "host_dir":
 		if strings.TrimSpace(s.HostDir) == "" {
 			return "-"

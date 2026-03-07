@@ -236,5 +236,5 @@ func (m *tuiModel) appendSelectedSessionPreview(previewLines, infoLines *[]strin
 
 	h, v := m.detailRows(selected)
 	*infoLines = append(*infoLines, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("info_header"))).Render(h))
-	*infoLines = append(*infoLines, lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("info_value"))).Render(v))
+	*infoLines = append(*infoLines, v)
 }
