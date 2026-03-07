@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/MysticalDevil/codexsm/config"
-	"github.com/MysticalDevil/codexsm/internal/tui/browser"
+	"github.com/MysticalDevil/codexsm/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -197,7 +197,7 @@ func defaultAppConfigTemplate() config.AppConfig {
 		LogFile:      "~/.codex/codexsm/logs/actions.log",
 		TUI: config.TUIConfig{
 			GroupBy: "month",
-			Theme:   browser.DefaultThemeName(),
+			Theme:   tui.DefaultThemeName(),
 			Source:  "sessions",
 			Colors:  map[string]string{},
 		},
@@ -228,7 +228,7 @@ func validateAppConfig(cfg config.AppConfig) error {
 	if v := strings.ToLower(strings.TrimSpace(cfg.TUI.Source)); v != "" && v != "sessions" && v != "trash" {
 		errs = append(errs, fmt.Errorf("tui.source: invalid value %q (allowed: sessions, trash)", cfg.TUI.Source))
 	}
-	if err := browser.ValidateTheme(cfg.TUI.Theme, cfg.TUI.Colors, "", nil); err != nil {
+	if err := tui.ValidateTheme(cfg.TUI.Theme, cfg.TUI.Colors, "", nil); err != nil {
 		errs = append(errs, fmt.Errorf("tui.theme/tui.colors: %w", err))
 	}
 	for k, v := range cfg.TUI.Colors {
