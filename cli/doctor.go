@@ -18,9 +18,9 @@ import (
 type doctorLevel string
 
 const (
-	doctorPass doctorLevel = "pass"
-	doctorWarn doctorLevel = "warn"
-	doctorFail doctorLevel = "fail"
+	doctorPass doctorLevel = "PASS"
+	doctorWarn doctorLevel = "WARN"
+	doctorFail doctorLevel = "FAIL"
 )
 
 type doctorCheck struct {
@@ -142,7 +142,7 @@ func checkSessionHostPaths(sessionsRoot string, sessionsErr error) doctorCheck {
 		Name:  "session_host_paths",
 		Level: doctorWarn,
 		Detail: fmt.Sprintf(
-			"missing hosts=%d sessions=%d sample=%s | strategy: review `codexsm list --host-contains %q`; migrate to trash (soft-delete) `codexsm delete --host-contains %q`; optional hard delete after review `codexsm delete --host-contains %q --dry-run=false --confirm --hard`",
+			"missing hosts=%d sessions=%d sample=%s\nstrategy:\n- review `codexsm list --host-contains %q`\n- migrate to trash (soft-delete) `codexsm delete --host-contains %q`\n- optional hard delete after review `codexsm delete --host-contains %q --dry-run=false --confirm --hard`",
 			len(missingCountByHost),
 			withHost,
 			strings.Join(sampleParts, ", "),
@@ -247,8 +247,32 @@ func renderDoctorChecks(checks []doctorCheck, color bool) string {
 				status = colorize(status, ansiRed, true)
 			}
 		}
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", c.Name, status, c.Detail)
+		lines := doctorDetailLines(c.Detail)
+		if len(lines) == 0 {
+			lines = []string{""}
+		}
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", c.Name, status, lines[0])
+		for _, line := range lines[1:] {
+			_, _ = fmt.Fprintf(w, "\t\t%s\n", line)
+		}
 	}
 	_ = w.Flush()
 	return buf.String()
+}
+
+func doctorDetailLines(detail string) []string {
+	d := strings.TrimSpace(detail)
+	if d == "" {
+		return nil
+	}
+	raw := strings.Split(d, "\n")
+	out := make([]string, 0, len(raw))
+	for _, line := range raw {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		out = append(out, line)
+	}
+	return out
 }
