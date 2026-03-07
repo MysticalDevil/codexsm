@@ -6,18 +6,28 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [v0.1.9] - 2026-03-08
+
+### Added
+
+- Added `doctor` host-path diagnostics with cleanup strategy guidance for sessions whose `host_dir` no longer exists.
+- Added TUI missing-host maintenance workflow with tree marker, detail host status marker, and `m` key migrate-to-trash action (dry-run/confirm safety preserved).
+- Added TUI regression tests for host grouping stability and missing-host strategy paths.
+
+### Changed
+
+- Fixed TUI host grouping to aggregate same-host sessions under a single group header even with time-sorted input.
+- Moved TUI implementation package from `internal/tui/browser` to top-level `tui` while keeping `codexsm tui` command behavior unchanged.
+- Updated README release/install examples toward `v0.1.9`.
+
+## [v0.1.8] - 2026-03-05
+
 ### Added
 
 - Added `config` command group with `show`, `init`, and `validate`.
 - Added benchmark baselines for `session.ScanSessions`, `session.FilterSessions`, and `cli` list table rendering.
 - Added unit tests for `internal/ops`, `internal/fileutil`, and `internal/restoreexec`.
 - Added CI smoke checks for `config` subcommands.
-- Added `doctor` host-path diagnostics with cleanup strategy guidance for sessions whose `host_dir` no longer exists.
-- Added TUI missing-host maintenance workflow:
-  - tree marker for sessions with missing host paths
-  - details panel host status marker
-  - `m` key action to migrate matched host sessions to trash (dry-run/confirm safety preserved)
-- Added TUI regression tests for host grouping stability and missing-host strategy paths.
 
 ### Changed
 
@@ -25,11 +35,9 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Refactored list implementation into focused modules (`list`, `list_columns`, `pager`, `ansi`).
 - Refactored restore/delete shared operation helpers into `internal` packages.
 - Split session scanner internals into parsing and head-scoring modules.
-- Fixed TUI host grouping to aggregate same-host sessions under a single group header even with time-sorted input.
-- Moved TUI implementation package from `internal/tui/browser` to top-level `tui` while keeping `codexsm tui` command behavior unchanged.
-- Updated README release/install examples toward `v0.1.9`.
+- Updated README release/install examples toward `v0.1.8`.
 
-## [v0.1.7] - 2026-03-04
+## [v0.1.7] - 2026-03-05
 
 ### Added
 
@@ -43,7 +51,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 - Improved docs and release/CI readiness for rollback workflows.
 
-## [v0.1.6] - 2026-03-04
+## [v0.1.6] - 2026-03-05
 
 ### Changed
 
