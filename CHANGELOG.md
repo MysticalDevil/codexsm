@@ -17,6 +17,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 - Improved `doctor session_host_paths` readability with compact sample paths and clearer action layout.
 - Updated README and command guide release examples toward `v0.2.1`.
+- Refined TUI tree status semantics: `OK` stays green `•`, host-missing / `MISSING-META` show orange `!`, `CORRUPTED` shows red `✖`, and non-healthy session names are colorized.
 
 ## [v0.2.0] - 2026-03-08
 

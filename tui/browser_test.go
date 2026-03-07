@@ -409,7 +409,7 @@ func TestDetailRowsColorsHealthValue(t *testing.T) {
 	if got := m.healthColorHex(session.HealthOK); got != m.colorHex("tag_success") {
 		t.Fatalf("healthColorHex(ok) mismatch: %q", got)
 	}
-	if got := m.healthColorHex(session.HealthCorrupted); got != m.colorHex("tag_danger") {
+	if got := m.healthColorHex(session.HealthCorrupted); got != m.colorHex("tag_error") {
 		t.Fatalf("healthColorHex(corrupted) mismatch: %q", got)
 	}
 }
@@ -612,22 +612,38 @@ func TestTUIRequestHostMigrateRejectsExistingHost(t *testing.T) {
 	}
 }
 
-func TestRenderTreeLinesMarksMissingHost(t *testing.T) {
+func TestRenderTreeLinesMarksHealthAndColorizedNames(t *testing.T) {
 	missingHost := filepath.Join(t.TempDir(), "missing-host")
 	m := tuiModel{
 		groupBy: "none",
 		sessions: []session.Session{
-			{SessionID: "s1", UpdatedAt: time.Now(), HostDir: missingHost},
+			{SessionID: "ok", UpdatedAt: time.Now(), Health: session.HealthOK, HostDir: missingHost},
+			{SessionID: "warn", UpdatedAt: time.Now().Add(-time.Minute), Health: session.HealthMissingMeta},
+			{SessionID: "err", UpdatedAt: time.Now().Add(-2 * time.Minute), Health: session.HealthCorrupted},
 		},
 		previewCache: map[string][]string{},
 	}
 	m.rebuildTree()
 	lines := m.renderTreeLines(80, "#999999")
-	joined := stripANSIForTest(strings.Join(lines, "\n"))
-	if !strings.Contains(joined, "! ") {
-		t.Fatalf("expected missing-host marker in tree lines: %q", joined)
+	raw := strings.Join(lines, "\n")
+	joined := stripANSIForTest(raw)
+	if !strings.Contains(joined, "! ok") {
+		t.Fatalf("expected host-missing marker in tree lines: %q", joined)
 	}
-	if !strings.Contains(joined, "•") {
-		t.Fatalf("expected health marker in tree lines: %q", joined)
+	if !strings.Contains(joined, "! warn") {
+		t.Fatalf("expected unhealthy marker in tree lines: %q", joined)
+	}
+	if !strings.Contains(joined, "✖ err") {
+		t.Fatalf("expected error marker in tree lines: %q", joined)
+	}
+
+	if sym, color := m.healthSymbolAndColor(session.HealthMissingMeta); sym != "!" || color != m.colorHex("tag_danger") {
+		t.Fatalf("unexpected missing-meta visual: sym=%q color=%q", sym, color)
+	}
+	if sym, color := m.healthSymbolAndColor(session.HealthCorrupted); sym != "✖" || color != m.colorHex("tag_error") {
+		t.Fatalf("unexpected corrupted visual: sym=%q color=%q", sym, color)
+	}
+	if sym, color, nonHealthy := m.treeHealthVisual(session.HealthOK, true); sym != "!" || color != m.colorHex("tag_danger") || !nonHealthy {
+		t.Fatalf("unexpected host-missing visual: sym=%q color=%q nonHealthy=%v", sym, color, nonHealthy)
 	}
 }

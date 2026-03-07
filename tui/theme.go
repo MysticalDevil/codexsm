@@ -149,6 +149,7 @@ var builtinThemes = map[string]map[string]string{
 		"tag_system":       "#7dcfff",
 		"tag_lifecycle":    "#73daca",
 		"tag_danger":       "#ff9e64",
+		"tag_error":        "#f7768e",
 		"tag_success":      "#9ece6a",
 	},
 	"catppuccin": {
@@ -182,6 +183,7 @@ var builtinThemes = map[string]map[string]string{
 		"tag_system":       "#89dceb",
 		"tag_lifecycle":    "#94e2d5",
 		"tag_danger":       "#fab387",
+		"tag_error":        "#f38ba8",
 		"tag_success":      "#a6e3a1",
 	},
 	"gruvbox": {
@@ -215,6 +217,7 @@ var builtinThemes = map[string]map[string]string{
 		"tag_system":       "#83a598",
 		"tag_lifecycle":    "#8ec07c",
 		"tag_danger":       "#fe8019",
+		"tag_error":        "#fb4934",
 		"tag_success":      "#b8bb26",
 	},
 	"onedark": {
@@ -248,6 +251,7 @@ var builtinThemes = map[string]map[string]string{
 		"tag_system":       "#56b6c2",
 		"tag_lifecycle":    "#98c379",
 		"tag_danger":       "#d19a66",
+		"tag_error":        "#e06c75",
 		"tag_success":      "#98c379",
 	},
 	"nord": {
@@ -281,6 +285,7 @@ var builtinThemes = map[string]map[string]string{
 		"tag_system":       "#88c0d0",
 		"tag_lifecycle":    "#8fbcbb",
 		"tag_danger":       "#d08770",
+		"tag_error":        "#bf616a",
 		"tag_success":      "#a3be8c",
 	},
 	"dracula": {
@@ -314,6 +319,7 @@ var builtinThemes = map[string]map[string]string{
 		"tag_system":       "#8be9fd",
 		"tag_lifecycle":    "#50fa7b",
 		"tag_danger":       "#ffb86c",
+		"tag_error":        "#ff5555",
 		"tag_success":      "#50fa7b",
 	},
 }

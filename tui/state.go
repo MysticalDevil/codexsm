@@ -262,12 +262,36 @@ func (m *tuiModel) healthColorHex(h session.Health) string {
 	case session.HealthOK:
 		return m.colorHex("tag_success")
 	case session.HealthCorrupted:
-		return m.colorHex("tag_danger")
+		return m.colorHex("tag_error")
 	case session.HealthMissingMeta:
-		return m.colorHex("tag_default")
+		return m.colorHex("tag_danger")
 	default:
 		return m.colorHex("info_value")
 	}
+}
+
+func (m *tuiModel) healthSymbolAndColor(h session.Health) (string, string) {
+	switch h {
+	case session.HealthOK:
+		return "•", m.colorHex("tag_success")
+	case session.HealthMissingMeta:
+		return "!", m.colorHex("tag_danger")
+	case session.HealthCorrupted:
+		return "✖", m.colorHex("tag_error")
+	default:
+		return "•", m.colorHex("info_value")
+	}
+}
+
+func (m *tuiModel) treeHealthVisual(h session.Health, hostMissing bool) (string, string, bool) {
+	if h == session.HealthCorrupted {
+		return "✖", m.colorHex("tag_error"), true
+	}
+	if hostMissing || h == session.HealthMissingMeta {
+		return "!", m.colorHex("tag_danger"), true
+	}
+	sym, color := m.healthSymbolAndColor(h)
+	return sym, color, false
 }
 
 func (m *tuiModel) syncPreviewSelection() {

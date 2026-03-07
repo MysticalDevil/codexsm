@@ -179,21 +179,24 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 		}
 		connectorPart := lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render("  " + connector + " ")
 		idWidth := max(4, leftW-10)
-		label := item.label
-		if item.hostMissing {
-			label = "! " + label
-		}
-		idText := truncateDisplay(label, idWidth)
-		healthMark := lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render("•")
+		idText := truncateDisplay(item.label, idWidth)
+		healthSymbol := "●"
+		healthColor := m.colorHex("status")
 		if item.index >= 0 && item.index < len(m.sessions) {
-			healthMark = lipgloss.NewStyle().
-				Bold(true).
-				Foreground(lipgloss.Color(m.healthColorHex(m.sessions[item.index].Health))).
-				Render("•")
+			symbol, color, nonHealthy := m.treeHealthVisual(m.sessions[item.index].Health, item.hostMissing)
+			healthSymbol = symbol
+			healthColor = color
+			if nonHealthy {
+				idText = lipgloss.NewStyle().
+					Bold(true).
+					Foreground(lipgloss.Color(color)).
+					Render(idText)
+			}
 		}
-		if item.hostMissing {
-			idText = lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("tag_danger"))).Render(idText)
-		}
+		healthMark := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(healthColor)).
+			Render(healthSymbol)
 		if i == m.cursor {
 			if m.focus == focusTree {
 				idText = lipgloss.NewStyle().
