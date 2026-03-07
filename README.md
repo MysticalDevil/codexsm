@@ -28,13 +28,13 @@ Project design notes:
 Preferred (Go):
 
 ```bash
-GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.1.8
+GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.1.9
 ```
 
 With `mise`:
 
 ```bash
-GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.1.8
+GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.1.9
 ```
 
 Note:
@@ -56,13 +56,13 @@ just build
 Or:
 
 ```bash
-GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.8" -o codexsm .
+GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.9" -o codexsm .
 ```
 
 Default local build version is `dev`. Set `VERSION` for release builds:
 
 ```bash
-VERSION=0.1.8 just build
+VERSION=0.1.9 just build
 ```
 
 It provides:
@@ -274,7 +274,7 @@ just cover-unit
 just cover-integration
 just cover-gate
 just check
-just check-release 0.1.8
+just check-release 0.1.9
 
 # Coverage requirements
 # - unit >= 50%
