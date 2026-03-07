@@ -2,10 +2,10 @@
 
 `codexsm` is a safety-first local Codex session manager written in Go.
 
-Project design notes:
-
-- [Architecture Notes](./docs/ARCHITECTURE.md)
-- [Changelog](./CHANGELOG.md)
+- Architecture: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- Command Guide: [docs/COMMANDS.md](./docs/COMMANDS.md)
+- Docs Index: [docs/INDEX.md](./docs/INDEX.md)
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
 
 ## Compatibility
 
@@ -14,127 +14,69 @@ Project design notes:
 - JSON packages: `encoding/json/v2`, `encoding/json/jsontext`
 
 > [!IMPORTANT]
-> `GOEXPERIMENT=jsonv2` is currently required for both build and install.
-> If this env is missing, `encoding/json/v2` and `encoding/json/jsontext` will fail to compile.
->
-> Recommended:
->
-> ```bash
-> export GOEXPERIMENT=jsonv2
-> ```
-
-## Install
-
-Preferred (Go):
-
-```bash
-GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.1.9
-```
-
-With `mise`:
-
-```bash
-GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.1.9
-```
-
-Note:
-
-- The installed binary name is `codexsm`.
-
-## Build
-
-When building/testing from source, enable:
+> `GOEXPERIMENT=jsonv2` is required for build, install, and test.
 
 ```bash
 export GOEXPERIMENT=jsonv2
 ```
 
-```bash
-just build
-```
-
-Or:
+## Install
 
 ```bash
-GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.9" -o codexsm .
+GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.1.9
 ```
 
-Default local build version is `dev`. Set `VERSION` for release builds:
+Or with `mise`:
 
 ```bash
-VERSION=0.1.9 just build
+GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.1.9
 ```
 
-It provides:
+## Quick Start
 
-- Session listing (`list`)
-- Session grouping (`group`)
-- Optional terminal UI (`tui`)
-- Safe deletion (`delete`, dry-run by default)
-- Session restore from trash (`restore`, dry-run by default)
-- Environment diagnostics (`doctor`)
-- Config management (`config show/init/validate`)
+```bash
+# List sessions
+codexsm list
 
-## Features
+# Open TUI
+codexsm tui
 
-- Safe by default:
-  - `delete` runs with `--dry-run=true`
-  - `restore` runs with `--dry-run=true`
-- Real operations require explicit intent:
-  - `--dry-run=false --confirm`
-- Default delete mode is soft delete (move to trash)
-- Optional hard delete with `--hard`
-- Interactive confirmation for real delete/restore (enabled by default)
-- Batch preview modes for real operations:
-  - `--preview sample` (default, first `--preview-limit` items; default limit `20`)
-  - `--preview full` (show all matched items)
-  - `--preview none` (suppress preview output)
-- Batch audit and rollback:
-  - each delete/restore invocation writes a `batch_id` to action logs
-  - rollback by batch: `restore --batch-id <batch_id>`
-  - `batch_id` is stored in the JSONL action log field `batch_id`
-  - default action log path: `~/.codex/codexsm/logs/actions.log`
-  - log path can be overridden by config `log_file` or command `--log-file`
-- Readable CLI output:
-  - compact list view by default
-  - `HEAD` with noise filtering
-  - `HOST` column from session cwd (`~` under home)
-  - customizable head width (`--head-width`)
-  - detailed mode
-  - pager mode (Vim keys: `j/k/g/G`, plus `a/q`)
-  - colored help/output
-  - `json/table/csv/tsv` formats
-- Optional TUI mode:
-  - keyboard navigation (`j/k/g/G`)
-  - tree grouping (`--group-by month|day|health|host|none`)
-  - configurable source (`--source sessions|trash`)
-  - selected session detail view
-  - in-TUI delete/restore actions with safety guards
-  - semantic preview highlighting (`U/A` role markers and `<...>` tag coloring)
-  - built-in themes (`tokyonight`, `catppuccin`, `gruvbox`, `onedark`, `nord`, `dracula`)
-  - custom theme overrides (`--theme-color key=value` or config file)
+# Grouped TUI
+codexsm tui --group-by host
 
-## TUI Status
+# Run health checks
+codexsm doctor
 
-Current TUI is usable for daily browsing and safe cleanup operations:
+# Dry-run delete
+codexsm delete --id-prefix 019ca9
 
-- stable session tree navigation and preview scrolling
-- multiple grouping modes for tree browsing
-- readable bottom info bar with host path preview
-- dry-run and real delete from TUI source `sessions` (`d`)
-- dry-run and real restore from TUI source `trash` (`r`)
-- built-in theme presets and user custom color overrides
+# Dry-run restore from trash
+codexsm restore --id-prefix 019ca9
+```
 
-Current limitations:
+For full command examples and flags, see [docs/COMMANDS.md](./docs/COMMANDS.md).
 
-- TUI still focuses on single-session actions per keypress (bulk actions stay in CLI)
-- layout and color tuning are still being iterated
+## Core Features
+
+- Session listing and grouping (`list`, `group`)
+- Interactive browser (`tui`) with theme support
+- Safe delete/restore workflow (`dry-run` by default)
+- Batch rollback via `restore --batch-id`
+- Diagnostics and configuration (`doctor`, `config`)
+
+## Safety Model
+
+- Destructive actions default to simulation (`--dry-run=true`).
+- Real execution requires explicit opt-in (`--dry-run=false --confirm`).
+- Multi-target real execution requires additional approval (`--yes` or interactive confirmation).
+- Soft-delete is default; hard delete is explicit (`--hard`).
+- Operation logs include `batch_id` for audit and rollback.
 
 ## Configuration
 
-`codexsm` loads runtime config from:
+Config path resolution:
 
-- `$CSM_CONFIG` (if set)
+- `$CSM_CONFIG` when set
 - otherwise `~/.config/codexsm/config.json`
 
 Example:
@@ -157,136 +99,21 @@ Example:
 }
 ```
 
-Common color keys for `tui.colors` / `--theme-color`:
-
-- `bg`, `fg`, `border`, `border_focus`
-- `title_tree`, `title_preview`, `group`
-- `selected_fg`, `selected_bg`, `cursor_active`, `cursor_inactive`
-- `keys_label`, `keys_key`, `keys_sep`, `keys_text`
-- `info_header`, `info_value`, `status`
-- `prefix_user`, `prefix_assistant`, `prefix_other`, `prefix_default`
-- `tag_default`, `tag_system`, `tag_lifecycle`, `tag_danger`, `tag_success`
-
-## Quick Start
+## Build And Dev
 
 ```bash
-# List recent sessions (default limit: 10)
-codexsm list
-
-# Launch interactive TUI
-codexsm tui
-
-# Launch TUI grouped by host
-codexsm tui --group-by host
-
-# Launch TUI with a different source and theme
-codexsm tui --source trash --theme gruvbox --theme-color border_focus=#fabd2f
-
-# Detailed list view
-codexsm list --detailed
-
-# Custom columns, no header
-codexsm list --format csv --no-header --column session_id,health
-
-# Sort by size ascending
-codexsm list --sort size --order asc --limit 20
-
-# Show all with pager
-codexsm list --limit 0 --pager
-
-# Group by day
-codexsm group --by day
-
-# Group by health with sorting and limit
-codexsm group --by health --sort count --order desc --limit 5
-
-# Environment checks
-codexsm doctor
-codexsm doctor --strict
-
-# Config checks
-codexsm config show --resolved
-codexsm config validate
-
-# Dry-run delete (default behavior)
-codexsm delete --id-prefix 019ca9
-
-# Real soft delete
-codexsm delete --id-prefix 019ca9 --dry-run=false --confirm
-
-# Real soft delete with full preview
-codexsm delete --id-prefix 019ca9 --dry-run=false --confirm --preview full
-
-# Real hard delete
-codexsm delete --id 019ca9c1-3df3-7551-b04b-b2a91c486755 --dry-run=false --confirm --hard
-
-# Dry-run restore from trash
-codexsm restore --id-prefix 019ca9
-
-# Real restore
-codexsm restore --id-prefix 019ca9 --dry-run=false --confirm
-
-# Roll back one soft-delete batch
-codexsm restore --batch-id b-20260305T120102Z-9f1a2b3c4d5e --dry-run=false --confirm
-```
-
-## Delete/Restore Safety Model
-
-`delete` and `restore` targets are selected by flags (not positional args):
-
-- `--id <session_id>`
-- `--id-prefix <prefix>`
-- `--batch-id <batch_id>` (restore only; cannot combine with selector flags)
-- `--older-than <duration>` (for example `30d`, `12h`)
-- `--health <ok|corrupted|missing-meta>`
-
-Rules:
-
-- At least one selector is required
-- Dry-run is default
-- Real operation requires `--confirm`
-- Batch real operation requires approval (`--yes` or interactive confirm)
-- `--preview` controls pre-execution preview style (`sample|full|none`)
-
-## Command Help
-
-```bash
-codexsm help
-codexsm help list
-codexsm help group
-codexsm help delete
-codexsm help restore
-codexsm help doctor
-codexsm help config
-codexsm help version
-```
-
-## Development
-
-```bash
-just fmt
-just lint
-just test            # unit tests
-just test-integration
-just test-all
-just cover
-just cover-unit
-just cover-integration
-just cover-gate
+just build
 just check
-just check-release 0.1.9
-
-# Coverage requirements
-# - unit >= 50%
-# - integration >= 65%
 just cover-gate
+just check-release 0.1.9
 ```
 
-Tooling defaults:
+Release build example:
 
-- Formatter: `gofumpt`
-- Lint: `go vet`
+```bash
+GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.1.9" -o codexsm .
+```
 
 ## License
 
-Licensed under the BSD 3-Clause License. See [LICENSE](./LICENSE) for details.
+BSD 3-Clause. See [LICENSE](./LICENSE).

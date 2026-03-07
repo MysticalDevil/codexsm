@@ -26,11 +26,21 @@ Known hot spot:
 - `cli/delete.go`
 - `cli/restore.go`
 - `cli/tui.go`
-- `cli/tui_view.go`
 - `cli/doctor.go`
 - `cli/config.go`
 
-3. Domain and storage logic:
+3. TUI package:
+- `tui/command.go`
+- `tui/view.go`
+- `tui/state.go`
+- `tui/actions.go`
+- `tui/preview.go`
+- `tui/render.go`
+- `tui/theme.go`
+- `tui/text.go`
+- `tui/helpers.go`
+
+4. Domain and storage logic:
 - `session/*` for scanning/filtering/delete operations
 - `audit/*` for action logs
 - `config/*` for path and app config resolution
@@ -39,12 +49,13 @@ Known hot spot:
 - `internal/restoreexec/*` and `internal/deleteexec/*` for operation execution wrappers
 - `internal/tui/layout/*` for TUI layout metrics
 
-4. Test support:
+5. Test support:
 - `internal/testsupport/*` fixture sandbox helpers
 
 Rules:
 
 - CLI and TUI reuse the same core session/audit logic.
+- `cli/tui.go` is an entry bridge; TUI behavior is implemented in `tui/*`.
 - destructive actions default to simulation (`dry-run`) paths.
 - action logging stays centralized in `audit`.
 - each batch operation is tagged with a `batch_id` for traceability and rollback.
