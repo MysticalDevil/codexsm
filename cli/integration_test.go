@@ -315,7 +315,7 @@ func TestList_ShortFlagHHelpAndHealth(t *testing.T) {
 	if err := healthCmd.Execute(); err != nil {
 		t.Fatalf("list -H execute: %v", err)
 	}
-	if !strings.Contains(healthOut.String(), "corrupted") {
+	if !strings.Contains(healthOut.String(), "CORRUPTED") {
 		t.Fatalf("expected corrupted row with -H, got: %q", healthOut.String())
 	}
 }
@@ -344,7 +344,7 @@ func TestList_NoHeaderAndColumn(t *testing.T) {
 	if strings.Contains(out, "session_id,health") {
 		t.Fatalf("unexpected header in output: %q", out)
 	}
-	if !strings.Contains(out, idColumns+",ok") {
+	if !strings.Contains(out, idColumns+",OK") {
 		t.Fatalf("unexpected row output: %q", out)
 	}
 }
