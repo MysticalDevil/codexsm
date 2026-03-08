@@ -9,7 +9,8 @@ Usage:
 
 Output:
   Writes session files under <output-root>/YYYY/MM/DD/*.jsonl with session_meta and
-  response_item lines. The same seed and args always generate the same content.
+  response_item lines. Also writes a small number of intentionally risky fixtures
+  (missing-meta and corrupted). The same seed and args always generate the same content.
 """
 
 from __future__ import annotations
@@ -106,6 +107,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--count", type=int, default=3000, help="number of session files to generate")
     parser.add_argument("--min-turns", type=int, default=12, help="minimum conversation turns per session")
     parser.add_argument("--max-turns", type=int, default=48, help="maximum conversation turns per session")
+    parser.add_argument("--risk-missing-meta-count", type=int, default=3, help="number of missing-meta risky files")
+    parser.add_argument("--risk-corrupted-count", type=int, default=3, help="number of corrupted risky files")
     parser.add_argument(
         "--start-time",
         default="2026-03-01T00:00:00Z",
@@ -200,6 +203,44 @@ def generate_one_session(
     return file_path
 
 
+def generate_risky_missing_meta(out_root: Path, rng: random.Random, range_start: datetime, range_end: datetime, idx: int) -> Path:
+    created = random_time_in_range(rng, range_start, range_end)
+    day_dir = out_root / created.strftime("%Y") / created.strftime("%m") / created.strftime("%d")
+    day_dir.mkdir(parents=True, exist_ok=True)
+    session_id = make_session_id(rng)
+    file_name = f"risk-missing-meta-{idx:03d}-{created.strftime('%Y-%m-%dT%H-%M-%S')}-{session_id}.jsonl"
+    file_path = day_dir / file_name
+    with file_path.open("w", encoding="utf-8", newline="\n") as fp:
+        # Intentionally not session_meta.
+        write_json_line(
+            fp,
+            {
+                "timestamp": created.isoformat().replace("+00:00", "Z"),
+                "type": "response_item",
+                "payload": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "risk fixture missing session_meta"}],
+                },
+            },
+        )
+    return file_path
+
+
+def generate_risky_corrupted(out_root: Path, rng: random.Random, range_start: datetime, range_end: datetime, idx: int) -> Path:
+    created = random_time_in_range(rng, range_start, range_end)
+    day_dir = out_root / created.strftime("%Y") / created.strftime("%m") / created.strftime("%d")
+    day_dir.mkdir(parents=True, exist_ok=True)
+    session_id = make_session_id(rng)
+    file_name = f"risk-corrupted-{idx:03d}-{created.strftime('%Y-%m-%dT%H-%M-%S')}-{session_id}.jsonl"
+    file_path = day_dir / file_name
+    with file_path.open("w", encoding="utf-8", newline="\n") as fp:
+        # Intentionally invalid JSON to trigger corrupted health.
+        fp.write('{"type":"session_meta","payload":{"id":"broken"\n')
+        fp.write("not-json-line\n")
+    return file_path
+
+
 def main() -> int:
     args = parse_args()
     if args.count <= 0:
@@ -208,6 +249,8 @@ def main() -> int:
         raise SystemExit("--min-turns and --max-turns must be > 0")
     if args.min_turns > args.max_turns:
         raise SystemExit("--min-turns cannot be greater than --max-turns")
+    if args.risk_missing_meta_count < 0 or args.risk_corrupted_count < 0:
+        raise SystemExit("--risk-missing-meta-count and --risk-corrupted-count must be >= 0")
 
     rng = random.Random(args.seed)
     range_start = parse_start_time(args.time_range_start) if args.time_range_start.strip() else parse_start_time(args.start_time)
@@ -222,12 +265,19 @@ def main() -> int:
     out_root.mkdir(parents=True, exist_ok=True)
 
     generated: list[Path] = []
+    risky_missing_meta: list[Path] = []
+    risky_corrupted: list[Path] = []
     for _ in range(args.count):
         generated.append(generate_one_session(out_root, rng, range_start, range_end, args.min_turns, args.max_turns))
+    for i in range(args.risk_missing_meta_count):
+        risky_missing_meta.append(generate_risky_missing_meta(out_root, rng, range_start, range_end, i))
+    for i in range(args.risk_corrupted_count):
+        risky_corrupted.append(generate_risky_corrupted(out_root, rng, range_start, range_end, i))
 
     print(
         "generated="
         f"{len(generated)} seed={args.seed} "
+        f"risk_missing_meta={len(risky_missing_meta)} risk_corrupted={len(risky_corrupted)} "
         f"time_range={range_start.isoformat().replace('+00:00', 'Z')}..{range_end.isoformat().replace('+00:00', 'Z')} "
         f"root={out_root}"
     )
