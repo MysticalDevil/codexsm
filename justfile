@@ -8,11 +8,15 @@ gofumpt := if env_var_or_default("GOFUMPT", "") != "" {
 }
 goexperiment := "GOEXPERIMENT=jsonv2"
 go_with_experiment := goexperiment + " " + go
+go_cache_dir := env_var_or_default("GO_CACHE_DIR", "/tmp/codexsm-go-cache")
+go_with_experiment_cache := "env " + goexperiment + " GOCACHE=" + go_cache_dir + " " + go
 version := env_var_or_default("VERSION", "dev")
 bin := env_var_or_default("BIN", "codexsm")
 integration_pkg := env_var_or_default("INTEGRATION_PKG", "./cli")
 unit_cov_min := env_var_or_default("UNIT_COV_MIN", "50")
 integration_cov_min := env_var_or_default("INTEGRATION_COV_MIN", "65")
+bench_sort_3k_ns_max := env_var_or_default("BENCH_SORT_3K_NS_MAX", "15000000")
+bench_sort_10k_ns_max := env_var_or_default("BENCH_SORT_10K_NS_MAX", "50000000")
 gen_seed := env_var_or_default("GEN_SEED", "20260308")
 gen_count := env_var_or_default("GEN_COUNT", "3000")
 gen_min_turns := env_var_or_default("GEN_MIN_TURNS", "12")
@@ -85,6 +89,40 @@ check-release version:
 # Build local binary
 build:
   {{go_with_experiment}} build -ldflags="-X main.version={{version}}" -o {{bin}} .
+
+# Run TUI micro-benchmarks
+bench-tui:
+  {{go_with_experiment_cache}} test -run='^$' -bench='Benchmark(SortTUISessions_3k|SortTUISessions_10k|BuildPreviewLines_LargeSession)$' -benchmem ./tui
+
+# Enforce TUI benchmark latency guardrails (ns/op)
+bench-gate:
+  if ! out="$({{go_with_experiment_cache}} test -run='^$' -bench='Benchmark(SortTUISessions_3k|SortTUISessions_10k)$' ./tui -count=1 2>&1)"; then \
+    echo "$out"; \
+    exit 1; \
+  fi; \
+  echo "$out"; \
+  echo "$out" | awk -v max3="{{bench_sort_3k_ns_max}}" -v max10="{{bench_sort_10k_ns_max}}" '\
+    /BenchmarkSortTUISessions_3k/ { for (i = 1; i <= NF; i++) if ($i == "ns/op") { got3 = $(i-1); break } } \
+    /BenchmarkSortTUISessions_10k/ { for (i = 1; i <= NF; i++) if ($i == "ns/op") { got10 = $(i-1); break } } \
+    END { \
+      if (got3 == "" || got10 == "") { \
+        print "benchmark output missing required rows"; \
+        exit 1; \
+      } \
+      if (got3 + 0 > max3 + 0) { \
+        printf("bench sort 3k %.0f ns/op > %.0f ns/op\n", got3 + 0, max3 + 0); \
+        fail = 1; \
+      } else { \
+        printf("bench sort 3k %.0f ns/op <= %.0f ns/op\n", got3 + 0, max3 + 0); \
+      } \
+      if (got10 + 0 > max10 + 0) { \
+        printf("bench sort 10k %.0f ns/op > %.0f ns/op\n", got10 + 0, max10 + 0); \
+        fail = 1; \
+      } else { \
+        printf("bench sort 10k %.0f ns/op <= %.0f ns/op\n", got10 + 0, max10 + 0); \
+      } \
+      if (fail) exit 1; \
+    }'
 
 # Generate seeded random session dataset
 gen-sessions:
