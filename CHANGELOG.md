@@ -10,13 +10,29 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Added
 
+- Added seeded session dataset generator with configurable seed, session count, turn range, and datetime range controls.
+- Added richer multilingual prompt pools for synthetic conversations (Chinese, English, Spanish, Latin, Japanese, Korean, Arabic), including mixed-language and emoji patterns.
+- Added larger default generated dataset volume for TUI stress testing.
+- Added `just gen-sessions` workflow for reproducible dataset generation under `testdata/_generated/`.
+- Added `doctor risk` command path with risk prioritization and structured JSON output (`--format json`).
+- Added SHA256 sidecar integrity verification support for risk evaluation.
+- Added static and generated risky fixture datasets under `testdata/fixtures/risky-static/` and generator risk injection options.
+- Added asynchronous TUI preview loading path with disk-backed preview index support.
+- Added TUI benchmark suite and guardrails (`bench-tui`, `bench-gate`) for sort latency.
 - Added `docs/RELEASE.md` with preflight, quality-gate, risk-fixture validation, and tag/release checklist.
 
 ### Changed
 
+- Changed TUI default grouping from month to host, while preserving `day` grouping support.
+- Trimmed less meaningful TUI grouping modes to reduce navigation noise.
+- Changed preview cache policy from entry-count cap to byte-budget LRU cap.
+- Changed preview cache keying to include width, reducing stale-layout reuse after resize.
+- Hardened preview index persistence with lock file coordination and corruption-tolerant recovery rewrite.
+- Updated TUI large-session preview behavior to background loading with placeholder-first rendering.
 - Expanded CI quality gates to include TUI benchmark thresholds and `doctor risk --format json` fixture validation.
 - Updated CI trigger policy to run on pull requests to `main` and release events (`v*` tags and published releases).
-- Updated README and docs index to include release-checklist navigation and release-prep commands.
+- Updated README, docs index, and command guide with release-checklist navigation and release-prep commands.
+- Updated release examples and checks toward `v0.2.2`.
 
 ## [v0.2.1] - 2026-03-08
 
