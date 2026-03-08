@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Changed
+
+- Improved TUI delete flow: after deleting a session, selection now advances to the next item (or nearest valid neighbor) instead of jumping back to the head.
+- Improved TUI delete confirmation visibility by replacing the bottom `KEYS` row content with a prominent in-place `Y/N` confirm prompt while an action is pending.
+
 ## [v0.2.2] - 2026-03-08
 
 ### Added
