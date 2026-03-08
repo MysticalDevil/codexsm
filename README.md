@@ -104,7 +104,7 @@ Example:
   "trash_root": "~/.codex/trash",
   "log_file": "~/.codex/codexsm/logs/actions.log",
   "tui": {
-    "group_by": "month",
+    "group_by": "host",
     "source": "sessions",
     "theme": "catppuccin",
     "colors": {

@@ -220,14 +220,14 @@ func TestClassifyAngleTag(t *testing.T) {
 }
 
 func TestNormalizeTUIGroupBy(t *testing.T) {
-	okCases := []string{"month", "day", "health", "host", "none", ""}
+	okCases := []string{"month", "host", ""}
 	for _, in := range okCases {
 		got, err := normalizeTUIGroupBy(in)
 		if err != nil {
 			t.Fatalf("normalizeTUIGroupBy(%q) error: %v", in, err)
 		}
-		if in == "" && got != "month" {
-			t.Fatalf("expected default month, got %q", got)
+		if in == "" && got != "host" {
+			t.Fatalf("expected default host, got %q", got)
 		}
 	}
 	if _, err := normalizeTUIGroupBy("invalid"); err == nil {
@@ -247,10 +247,7 @@ func TestRebuildTreeGroupingModes(t *testing.T) {
 		expectGroupNodes bool
 	}{
 		{mode: "month", expectGroupNodes: true},
-		{mode: "day", expectGroupNodes: true},
-		{mode: "health", expectGroupNodes: true},
 		{mode: "host", expectGroupNodes: true},
-		{mode: "none", expectGroupNodes: false},
 	}
 	for _, tc := range tests {
 		tc := tc
@@ -372,17 +369,8 @@ func TestGroupKeyForSession(t *testing.T) {
 	if got := m.groupKeyForSession(s, "month"); got == "" || !strings.Contains(got, "2026-03") {
 		t.Fatalf("month group key unexpected: %q", got)
 	}
-	if got := m.groupKeyForSession(s, "day"); got == "" || !strings.Contains(got, "2026-03-05") {
-		t.Fatalf("day group key unexpected: %q", got)
-	}
-	if got := m.groupKeyForSession(s, "health"); got != strings.ToUpper(string(session.HealthOK)) {
-		t.Fatalf("health group key unexpected: %q", got)
-	}
 	if got := m.groupKeyForSession(s, "host"); got == "" || !strings.Contains(got, "~/work/project") {
 		t.Fatalf("host group key unexpected: %q", got)
-	}
-	if got := m.groupKeyForSession(s, "none"); got != "" {
-		t.Fatalf("none group key expected empty, got %q", got)
 	}
 }
 
@@ -443,7 +431,7 @@ func TestTUIViewAndHelpersCoverage(t *testing.T) {
 		home:         "/home/omega",
 		sessionsRoot: filepath.Join(workspace, "sessions"),
 		previewCache: make(map[string][]string),
-		groupBy:      "month",
+		groupBy:      "host",
 		focus:        focusTree,
 	}
 	m.rebuildTree()

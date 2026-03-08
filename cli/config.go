@@ -196,7 +196,7 @@ func defaultAppConfigTemplate() config.AppConfig {
 		TrashRoot:    "~/.codex/trash",
 		LogFile:      "~/.codex/codexsm/logs/actions.log",
 		TUI: config.TUIConfig{
-			GroupBy: "month",
+			GroupBy: "host",
 			Theme:   tui.DefaultThemeName(),
 			Source:  "sessions",
 			Colors:  map[string]string{},
@@ -220,7 +220,7 @@ func validateAppConfig(cfg config.AppConfig) error {
 	checkPath("log_file", cfg.LogFile)
 
 	if v := strings.ToLower(strings.TrimSpace(cfg.TUI.GroupBy)); v != "" {
-		allowed := []string{"month", "day", "health", "host", "none"}
+		allowed := []string{"host", "month"}
 		if !slices.Contains(allowed, v) {
 			errs = append(errs, fmt.Errorf("tui.group_by: invalid value %q (allowed: %s)", cfg.TUI.GroupBy, strings.Join(allowed, ", ")))
 		}

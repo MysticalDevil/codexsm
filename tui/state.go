@@ -70,47 +70,34 @@ func (m *tuiModel) rebuildTree() {
 	m.tree = make([]treeItem, 0, len(m.sessions)+16)
 	mode := strings.ToLower(strings.TrimSpace(m.groupBy))
 	if mode == "" {
-		mode = "month"
+		mode = "host"
 	}
-	if mode == "none" {
-		for i, s := range m.sessions {
+	groupOrder := make([]string, 0, len(m.sessions))
+	grouped := make(map[string][]int, len(m.sessions))
+	for i, s := range m.sessions {
+		group := m.groupKeyForSession(s, mode)
+		if _, exists := grouped[group]; !exists {
+			groupOrder = append(groupOrder, group)
+		}
+		grouped[group] = append(grouped[group], i)
+	}
+
+	for _, group := range groupOrder {
+		m.tree = append(m.tree, treeItem{
+			kind:   treeItemMonth,
+			label:  "▾ " + group,
+			month:  group,
+			indent: 0,
+		})
+		for _, i := range grouped[group] {
 			m.tree = append(m.tree, treeItem{
 				kind:        treeItemSession,
-				label:       shortID(s.SessionID),
-				month:       m.groupKeyForSession(s, mode),
+				label:       shortID(m.sessions[i].SessionID),
+				month:       group,
 				index:       i,
 				indent:      1,
-				hostMissing: m.sessionHostMissing(s),
+				hostMissing: m.sessionHostMissing(m.sessions[i]),
 			})
-		}
-	} else {
-		groupOrder := make([]string, 0, len(m.sessions))
-		grouped := make(map[string][]int, len(m.sessions))
-		for i, s := range m.sessions {
-			group := m.groupKeyForSession(s, mode)
-			if _, exists := grouped[group]; !exists {
-				groupOrder = append(groupOrder, group)
-			}
-			grouped[group] = append(grouped[group], i)
-		}
-
-		for _, group := range groupOrder {
-			m.tree = append(m.tree, treeItem{
-				kind:   treeItemMonth,
-				label:  "▾ " + group,
-				month:  group,
-				indent: 0,
-			})
-			for _, i := range grouped[group] {
-				m.tree = append(m.tree, treeItem{
-					kind:        treeItemSession,
-					label:       shortID(m.sessions[i].SessionID),
-					month:       group,
-					index:       i,
-					indent:      1,
-					hostMissing: m.sessionHostMissing(m.sessions[i]),
-				})
-			}
 		}
 	}
 	m.cursor = 0
@@ -120,18 +107,6 @@ func (m *tuiModel) rebuildTree() {
 
 func (m *tuiModel) groupKeyForSession(s session.Session, mode string) string {
 	switch mode {
-	case "none":
-		return ""
-	case "day":
-		if s.UpdatedAt.IsZero() {
-			return "unknown-day"
-		}
-		return s.UpdatedAt.Local().Format("2006-01-02")
-	case "health":
-		if strings.TrimSpace(string(s.Health)) == "" {
-			return "unknown-health"
-		}
-		return strings.ToUpper(string(s.Health))
 	case "host":
 		host := compactHomePath(s.HostDir, m.home)
 		if strings.TrimSpace(host) == "" {
@@ -151,13 +126,13 @@ func (m *tuiModel) groupKeyForSession(s session.Session, mode string) string {
 func normalizeTUIGroupBy(v string) (string, error) {
 	mode := strings.ToLower(strings.TrimSpace(v))
 	if mode == "" {
-		mode = "month"
+		mode = "host"
 	}
 	switch mode {
-	case "month", "day", "health", "host", "none":
+	case "month", "host":
 		return mode, nil
 	default:
-		return "", fmt.Errorf("invalid --group-by %q (allowed: month, day, health, host, none)", v)
+		return "", fmt.Errorf("invalid --group-by %q (allowed: month, host)", v)
 	}
 }
 

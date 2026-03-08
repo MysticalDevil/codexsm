@@ -217,7 +217,7 @@ func NewCommand(deps CommandDeps) *cobra.Command {
 	cmd.Flags().StringVar(&trashRoot, "trash-root", "", "trash root directory")
 	cmd.Flags().StringVar(&logFile, "log-file", "", "action log file")
 	cmd.Flags().IntVarP(&limit, "limit", "l", 100, "max sessions loaded into TUI (0 means unlimited)")
-	cmd.Flags().StringVar(&groupBy, "group-by", "", "tree group key: month|day|health|host|none")
+	cmd.Flags().StringVar(&groupBy, "group-by", "", "tree group key: host|month")
 	cmd.Flags().StringVar(&source, "source", "", "session source: sessions|trash")
 	cmd.Flags().StringVar(&themeName, "theme", "", "TUI theme: tokyonight|catppuccin|gruvbox|onedark|nord|dracula")
 	cmd.Flags().StringArrayVar(&themeColors, "theme-color", nil, "custom theme override (key=value), repeatable")

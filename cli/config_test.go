@@ -15,7 +15,7 @@ func TestDefaultAppConfigTemplate(t *testing.T) {
 	if cfg.SessionsRoot == "" || cfg.TrashRoot == "" || cfg.LogFile == "" {
 		t.Fatalf("expected default paths, got %+v", cfg)
 	}
-	if cfg.TUI.GroupBy != "month" || cfg.TUI.Theme == "" || cfg.TUI.Source != "sessions" {
+	if cfg.TUI.GroupBy != "host" || cfg.TUI.Theme == "" || cfg.TUI.Source != "sessions" {
 		t.Fatalf("unexpected default tui config: %+v", cfg.TUI)
 	}
 }
