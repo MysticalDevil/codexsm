@@ -6,6 +6,16 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- Added `docs/RELEASE.md` with preflight, quality-gate, risk-fixture validation, and tag/release checklist.
+
+### Changed
+
+- Expanded CI quality gates to include TUI benchmark thresholds and `doctor risk --format json` fixture validation.
+- Updated CI trigger policy to run on pull requests to `main` and release events (`v*` tags and published releases).
+- Updated README and docs index to include release-checklist navigation and release-prep commands.
+
 ## [v0.2.1] - 2026-03-08
 
 ### Added
