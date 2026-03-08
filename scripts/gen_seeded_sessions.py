@@ -2,7 +2,10 @@
 """Generate deterministic random Codex session .jsonl files.
 
 Usage:
-  python3 scripts/gen_seeded_sessions.py --seed 20260308 --count 50 --output-root ./tmp/sessions
+  python3 scripts/gen_seeded_sessions.py --seed 20260308 --count 50 \
+    --time-range-start 2026-03-01T00:00:00Z \
+    --time-range-end 2026-03-31T23:59:59Z \
+    --output-root ./tmp/sessions
 
 Output:
   Writes session files under <output-root>/YYYY/MM/DD/*.jsonl with session_meta and
@@ -106,7 +109,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--start-time",
         default="2026-03-01T00:00:00Z",
-        help="base RFC3339 timestamp in UTC, default: 2026-03-01T00:00:00Z",
+        help="legacy base RFC3339 timestamp in UTC; used when --time-range-start is omitted",
+    )
+    parser.add_argument(
+        "--time-range-start",
+        default="",
+        help="RFC3339 UTC start timestamp for randomized created_at range",
+    )
+    parser.add_argument(
+        "--time-range-end",
+        default="",
+        help="RFC3339 UTC end timestamp for randomized created_at range",
     )
     return parser.parse_args()
 
@@ -126,14 +139,25 @@ def make_session_id(rng: random.Random) -> str:
     return f"{h[:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:]}"
 
 
+def random_time_in_range(rng: random.Random, start: datetime, end: datetime) -> datetime:
+    if end < start:
+        raise ValueError("time range end must be >= start")
+    start_ts = int(start.timestamp())
+    end_ts = int(end.timestamp())
+    picked = rng.randint(start_ts, end_ts)
+    return datetime.fromtimestamp(picked, tz=UTC)
+
+
 def write_json_line(fp, payload: dict) -> None:
     fp.write(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
     fp.write("\n")
 
 
-def generate_one_session(out_root: Path, rng: random.Random, idx: int, base_time: datetime, min_turns: int, max_turns: int) -> Path:
+def generate_one_session(
+    out_root: Path, rng: random.Random, range_start: datetime, range_end: datetime, min_turns: int, max_turns: int
+) -> Path:
     session_id = make_session_id(rng)
-    created = base_time + timedelta(minutes=idx * 7 + rng.randint(0, 5))
+    created = random_time_in_range(rng, range_start, range_end)
     day_dir = out_root / created.strftime("%Y") / created.strftime("%m") / created.strftime("%d")
     day_dir.mkdir(parents=True, exist_ok=True)
 
@@ -186,15 +210,27 @@ def main() -> int:
         raise SystemExit("--min-turns cannot be greater than --max-turns")
 
     rng = random.Random(args.seed)
-    base_time = parse_start_time(args.start_time)
+    range_start = parse_start_time(args.time_range_start) if args.time_range_start.strip() else parse_start_time(args.start_time)
+    if args.time_range_end.strip():
+        range_end = parse_start_time(args.time_range_end)
+    else:
+        range_end = range_start + timedelta(days=30)
+    if range_end < range_start:
+        raise SystemExit("--time-range-end cannot be earlier than --time-range-start")
+
     out_root = Path(args.output_root).expanduser().resolve()
     out_root.mkdir(parents=True, exist_ok=True)
 
     generated: list[Path] = []
-    for i in range(args.count):
-        generated.append(generate_one_session(out_root, rng, i, base_time, args.min_turns, args.max_turns))
+    for _ in range(args.count):
+        generated.append(generate_one_session(out_root, rng, range_start, range_end, args.min_turns, args.max_turns))
 
-    print(f"generated={len(generated)} seed={args.seed} root={out_root}")
+    print(
+        "generated="
+        f"{len(generated)} seed={args.seed} "
+        f"time_range={range_start.isoformat().replace('+00:00', 'Z')}..{range_end.isoformat().replace('+00:00', 'Z')} "
+        f"root={out_root}"
+    )
     for p in generated[:5]:
         print(f"sample={p}")
     if len(generated) > 5:

@@ -17,7 +17,8 @@ gen_seed := env_var_or_default("GEN_SEED", "20260308")
 gen_count := env_var_or_default("GEN_COUNT", "20")
 gen_min_turns := env_var_or_default("GEN_MIN_TURNS", "40")
 gen_max_turns := env_var_or_default("GEN_MAX_TURNS", "240")
-gen_start_time := env_var_or_default("GEN_START_TIME", "2026-03-01T00:00:00Z")
+gen_time_range_start := env_var_or_default("GEN_TIME_RANGE_START", "2026-03-01T00:00:00Z")
+gen_time_range_end := env_var_or_default("GEN_TIME_RANGE_END", "2026-03-31T23:59:59Z")
 gen_output_root := env_var_or_default("GEN_OUTPUT_ROOT", "tmp/generated-sessions")
 
 # Show available targets
@@ -90,7 +91,8 @@ gen-sessions:
     --count {{gen_count}} \
     --min-turns {{gen_min_turns}} \
     --max-turns {{gen_max_turns}} \
-    --start-time {{gen_start_time}} \
+    --time-range-start {{gen_time_range_start}} \
+    --time-range-end {{gen_time_range_end}} \
     --output-root {{gen_output_root}}
 
 # Remove generated coverage files
