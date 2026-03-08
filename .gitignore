@@ -21,6 +21,8 @@ coverage.out
 .vscode/
 *.swp
 *.tmp
+__pycache__/
+/tmp/
 
 # Local planning docs
 TARGET.md
