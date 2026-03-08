@@ -222,7 +222,15 @@ func (m *tuiModel) appendSelectedSessionPreview(previewLines, infoLines *[]strin
 	previewContentHeight := max(2, previewInnerH-4)
 	previewTextWidth := max(8, rightW-8)
 
-	preview := m.previewFor(selected.Path, previewTextWidth, previewContentHeight)
+	key := previewCacheKeyForSession(selected, previewTextWidth)
+	preview, ok := m.previewCachePeek(key)
+	if !ok {
+		if m.previewWait == key {
+			preview = []string{" loading preview..."}
+		} else {
+			preview = []string{" preview not ready"}
+		}
+	}
 	maybeMax := max(0, len(preview)-previewContentHeight)
 	if m.previewOffset > maybeMax {
 		m.previewOffset = maybeMax

@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"container/list"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -48,6 +49,14 @@ type tuiModel struct {
 	sessionsRoot  string
 	status        string
 	previewCache  map[string][]string
+	previewLRU    *list.List
+	previewNodes  map[string]*list.Element
+	previewCap    int
+	previewReqSeq uint64
+	previewReqID  uint64
+	previewWait   string
+	previewIndex  string
+	indexCap      int
 	lastPath      string
 	focus         tuiFocus
 	groupBy       string
@@ -189,16 +198,24 @@ func NewCommand(deps CommandDeps) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			previewIndex, err := config.ResolvePath("~/.codex/codexsm/index/preview.v1.jsonl")
+			if err != nil {
+				previewIndex = ""
+			}
 			m := tuiModel{
 				sessions:     items,
 				home:         home,
 				sessionsRoot: sessionsRoot,
 				status:       "Ready. Press q to quit.",
 				previewCache: make(map[string][]string),
+				previewNodes: make(map[string]*list.Element),
+				previewCap:   256,
 				focus:        focusTree,
 				groupBy:      mode,
 				source:       source,
 				theme:        theme,
+				previewIndex: previewIndex,
+				indexCap:     5000,
 				trashRoot:    trashRoot,
 				logFile:      logFile,
 				dryRun:       dryRun,
@@ -239,11 +256,25 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.clampOffset()
+		return m, m.ensurePreviewRequest()
+	case previewLoadedMsg:
+		if msg.RequestID != m.previewReqID || msg.Key != m.previewWait {
+			return m, nil
+		}
+		m.previewWait = ""
+		if msg.Err == "" {
+			m.previewCachePut(msg.Key, msg.Lines)
+			return m, persistPreviewIndexCmd(m.previewIndex, m.indexCap, msg.Record)
+		}
+		m.previewCachePut(msg.Key, []string{" preview load failed: " + msg.Err})
+		return m, nil
+	case previewIndexPersistedMsg:
 		return m, nil
 	case tea.KeyMsg:
 		if m.handleKey(msg.String()) {
 			return m, tea.Quit
 		}
+		return m, m.ensurePreviewRequest()
 	}
 	return m, nil
 }

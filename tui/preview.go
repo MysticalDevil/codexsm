@@ -26,14 +26,21 @@ const (
 )
 
 func (m *tuiModel) previewFor(path string, width, lines int) []string {
+	key := fmt.Sprintf("%s|w:%d", path, width)
+	if cached, ok := m.previewCacheGet(key); ok {
+		return cached
+	}
+	out := buildPreviewLines(path, width, lines, m.theme)
+	m.previewCachePut(key, out)
+	return out
+}
+
+func buildPreviewLines(path string, width, lines int, theme tuiTheme) []string {
 	if width < 10 {
 		width = 10
 	}
 	if lines < 5 {
 		lines = 5
-	}
-	if cached, ok := m.previewCache[path]; ok {
-		return cached
 	}
 
 	const maxPreviewLines = 600
@@ -41,7 +48,6 @@ func (m *tuiModel) previewFor(path string, width, lines int) []string {
 	f, err := os.Open(path)
 	if err != nil {
 		out = append(out, " failed to open preview: "+err.Error())
-		m.previewCache[path] = out
 		return out
 	}
 	defer func() { _ = f.Close() }()
@@ -89,17 +95,17 @@ func (m *tuiModel) previewFor(path string, width, lines int) []string {
 			remaining := max(0, width-runewidth.StringWidth(prefixCell))
 			chunk = truncateDisplay(chunk, remaining)
 
-			prefixStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("prefix_default")))
+			prefixStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(previewColorHex(theme, "prefix_default")))
 			switch p {
 			case "U":
-				prefixStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("prefix_user")))
+				prefixStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(previewColorHex(theme, "prefix_user")))
 			case "A":
-				prefixStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("prefix_assistant")))
+				prefixStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(previewColorHex(theme, "prefix_assistant")))
 			case "?":
-				prefixStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("prefix_other")))
+				prefixStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(previewColorHex(theme, "prefix_other")))
 			}
 
-			row := prefixStyle.Render(prefixCell) + highlightAngleTags(chunk, m.theme)
+			row := prefixStyle.Render(prefixCell) + highlightAngleTags(chunk, theme)
 			out = append(out, row)
 		}
 	}
@@ -109,8 +115,15 @@ func (m *tuiModel) previewFor(path string, width, lines int) []string {
 	if len(out) == 0 {
 		out = append(out, " no dialogue preview available")
 	}
-	m.previewCache[path] = out
 	return out
+}
+
+func previewColorHex(theme tuiTheme, key string) string {
+	fallback := builtinThemes[defaultTUIThemeName()][key]
+	if strings.TrimSpace(theme.Name) == "" || len(theme.Colors) == 0 {
+		return fallback
+	}
+	return theme.hex(key, fallback)
 }
 
 func previewLine(line string) (role string, text string) {
