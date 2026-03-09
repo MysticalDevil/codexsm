@@ -37,6 +37,12 @@ Or with `mise`:
 GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.2.5
 ```
 
+Experimental branch for performance-oriented users:
+
+- branch: `exp/zig-incremental`
+- scope: opt-in `zsession` scan/risk/preview pipeline for users comfortable with experimental native integration
+- guide: <https://github.com/MysticalDevil/codexsm/tree/exp/zig-incremental/docs/INSTALL_ZIG_EXPERIMENT.md>
+
 ## Quick Start
 
 ```bash
