@@ -8,7 +8,7 @@ This checklist is for preparing the next `codexsm` release.
    - `git status --short`
    - `git fetch origin main`
 2. Confirm release version and date:
-   - choose next semver tag (example: `v0.2.2`)
+   - choose next semver tag (example: `v0.2.4`)
    - record release date in `CHANGELOG.md`
 3. Confirm Go environment:
    - `go version` (must be `1.26+`)
@@ -26,8 +26,8 @@ just bench-gate
 
 Expected thresholds:
 
-- unit coverage: `>= 50%`
-- integration coverage: `>= 65%`
+- unit coverage: `>= 60%`
+- integration coverage: `>= 72%`
 - benchmark sort 3k: `<= 15,000,000 ns/op`
 - benchmark sort 10k: `<= 50,000,000 ns/op`
 

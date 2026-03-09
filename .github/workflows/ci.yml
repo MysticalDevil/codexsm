@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GOEXPERIMENT: jsonv2
-      UNIT_COVERAGE_MIN: "50"
-      INTEGRATION_COVERAGE_MIN: "65"
+      UNIT_COVERAGE_MIN: "60"
+      INTEGRATION_COVERAGE_MIN: "72"
       BENCH_SORT_3K_NS_MAX: "15000000"
       BENCH_SORT_10K_NS_MAX: "50000000"
     steps:

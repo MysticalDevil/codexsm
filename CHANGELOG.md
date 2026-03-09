@@ -6,6 +6,21 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [v0.2.4] - 2026-03-09
+
+### Changed
+
+- Refined TUI rendering to follow the terminal default background while preserving themed borders, selection, and local highlight styles.
+- Improved TUI layout behavior in narrower terminals by centering the main layout, reserving a terminal-edge safety column, and raising the minimum supported width to avoid partial border/keybar rendering.
+- Simplified the TUI min-size fallback view so constrained terminals show a centered warning panel instead of attempting to render the normal keybar path.
+- Adjusted the TUI pane split to give the tree pane more width and reduce excess whitespace in the preview column on medium-width terminals.
+- Raised coverage gates to `>= 60%` unit and `>= 72%` integration, and aligned CI coverage thresholds with the local release gate.
+
+### Added
+
+- Added TUI regression coverage for restore guard paths, pending-action cancellation paths, and min-size warning rendering constraints.
+- Added CLI coverage for preview helper edge cases and restore selector/batch guard paths.
+
 ## [v0.2.3] - 2026-03-09
 
 ### Changed
