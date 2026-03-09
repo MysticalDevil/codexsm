@@ -3,7 +3,10 @@ package layout
 
 const (
 	// MinWidth is the minimal terminal width required by TUI.
-	MinWidth = 100
+	// The current TUI needs 121 columns for the full keybar text plus
+	// border/padding. Rendering also reserves one safety column to avoid
+	// terminal-edge autowrap in environments such as Windows Terminal.
+	MinWidth = 125
 	// MinHeight is the minimal terminal height required by TUI.
 	MinHeight = 24
 )
@@ -32,17 +35,27 @@ func NormalizeSize(width, height int) (int, int) {
 	return width, height
 }
 
+// RenderWidth returns a width safe for rendering without hitting the terminal's
+// last column, which can trigger autowrap and break borders in some terminals.
+func RenderWidth(width int) int {
+	if width <= 1 {
+		return width
+	}
+	return width - 1
+}
+
 // IsTooSmall reports whether current terminal size is below supported bounds.
 func IsTooSmall(width, height int) bool {
 	if width <= 0 || height <= 0 {
 		return false
 	}
-	return width < MinWidth || height < MinHeight
+	return RenderWidth(width) < MinWidth || height < MinHeight
 }
 
 // Compute calculates panel dimensions for a normalized terminal size.
 func Compute(width, height int) Metrics {
 	totalW, totalH := NormalizeSize(width, height)
+	totalW = RenderWidth(totalW)
 
 	keysOuterH := 3
 	mainAreaH := max(8, totalH-keysOuterH)

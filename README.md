@@ -119,6 +119,12 @@ Example:
 }
 ```
 
+TUI note:
+
+- main panes follow the terminal's default background
+- theme colors still control borders, titles, selection, keybar, and preview roles
+- `bg` remains available for local emphasis, such as highlighted action prompts
+
 ## Build And Dev
 
 ```bash

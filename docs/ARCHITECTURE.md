@@ -133,6 +133,11 @@ Recommended semantic keys:
 - preview roles: `prefix_user`, `prefix_assistant`, `prefix_other`, `prefix_default`
 - tag highlighting: `tag_default`, `tag_system`, `tag_lifecycle`, `tag_danger`, `tag_success`
 
+Rendering note:
+
+- main panes inherit the terminal's default background instead of painting the theme `bg`
+- theme `bg` is reserved for local contrast needs such as foreground-on-accent combinations
+
 ## Third-Party Packages
 
 Core CLI:

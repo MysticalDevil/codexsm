@@ -14,14 +14,26 @@ func TestNormalizeSize(t *testing.T) {
 	}
 }
 
+func TestRenderWidth(t *testing.T) {
+	if got := RenderWidth(0); got != 0 {
+		t.Fatalf("RenderWidth(0)=%d, want 0", got)
+	}
+	if got := RenderWidth(1); got != 1 {
+		t.Fatalf("RenderWidth(1)=%d, want 1", got)
+	}
+	if got := RenderWidth(140); got != 139 {
+		t.Fatalf("RenderWidth(140)=%d, want 139", got)
+	}
+}
+
 func TestIsTooSmall(t *testing.T) {
-	if IsTooSmall(80, 30) != true {
+	if IsTooSmall(125, 30) != true {
 		t.Fatal("width below minimum should be too small")
 	}
 	if IsTooSmall(120, 20) != true {
 		t.Fatal("height below minimum should be too small")
 	}
-	if IsTooSmall(120, 30) != false {
+	if IsTooSmall(126, 30) != false {
 		t.Fatal("expected enough terminal size")
 	}
 	// Unknown runtime size should not trigger warning path.
@@ -32,7 +44,7 @@ func TestIsTooSmall(t *testing.T) {
 
 func TestCompute(t *testing.T) {
 	m := Compute(120, 32)
-	if m.TotalW != 120 || m.TotalH != 32 {
+	if m.TotalW != 119 || m.TotalH != 32 {
 		t.Fatalf("unexpected normalized size: %+v", m)
 	}
 	if m.KeysOuterH != 3 {

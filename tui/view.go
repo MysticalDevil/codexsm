@@ -14,14 +14,12 @@ func (m tuiModel) View() string {
 	borderColor := m.colorHex("border")
 	borderFocusColor := m.colorHex("border_focus")
 	fgColor := m.colorHex("fg")
-	bgColor := m.colorHex("bg")
 	statusColor := m.colorHex("status")
 
 	keysPanelStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color(borderColor)).
 		Foreground(lipgloss.Color(fgColor)).
-		Background(lipgloss.Color(bgColor)).
 		Padding(0, 1)
 	renderKeysBar := func(outerW int) string {
 		innerW := max(1, outerW-keysPanelStyle.GetHorizontalFrameSize())
@@ -41,7 +39,6 @@ func (m tuiModel) View() string {
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color(borderColor)).
 			Foreground(lipgloss.Color(fgColor)).
-			Background(lipgloss.Color(bgColor)).
 			Padding(1, 2).
 			Render(msg)
 		warnW := lipgloss.Width(warn)
@@ -58,7 +55,6 @@ func (m tuiModel) View() string {
 			Border(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color(borderColor)).
 			Foreground(lipgloss.Color(fgColor)).
-			Background(lipgloss.Color(bgColor)).
 			Padding(0, 1).
 			Render(empty + "\n" + m.status)
 		emptyW := lipgloss.Width(emptyPane)
@@ -69,17 +65,14 @@ func (m tuiModel) View() string {
 	leftBase := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		Foreground(lipgloss.Color(fgColor)).
-		Background(lipgloss.Color(bgColor)).
 		Padding(0, 1)
 	rightBase := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		Foreground(lipgloss.Color(fgColor)).
-		Background(lipgloss.Color(bgColor)).
 		Padding(0, 1)
 	infoBase := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		Foreground(lipgloss.Color(fgColor)).
-		Background(lipgloss.Color(bgColor)).
 		Padding(0, 1)
 
 	leftW := max(12, metrics.LeftOuterW-leftBase.GetHorizontalFrameSize())
@@ -138,7 +131,6 @@ func (m tuiModel) View() string {
 		Width(mainOuterW).
 		MaxWidth(mainOuterW).
 		Foreground(lipgloss.Color(fgColor)).
-		Background(lipgloss.Color(bgColor)).
 		Render(lipgloss.JoinVertical(lipgloss.Left, mainArea, keybar))
 	return mainContainer
 }
