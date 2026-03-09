@@ -13,6 +13,7 @@ import (
 	"github.com/mattn/go-runewidth"
 
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
+	"github.com/MysticalDevil/codexsm/internal/tui/layout"
 	"github.com/MysticalDevil/codexsm/session"
 )
 
@@ -64,6 +65,15 @@ func TestTUIViewMinSizeWarning(t *testing.T) {
 	}
 	if strings.Contains(out, "q quit") {
 		t.Fatalf("did not expect extra bottom quit hint, got: %q", out)
+	}
+	if strings.Contains(out, "[KEYS]") {
+		t.Fatalf("did not expect keybar in min-size warning, got: %q", out)
+	}
+	maxWidth := layout.Compute(m.width, m.height).TotalW
+	for _, line := range strings.Split(stripANSIForTest(out), "\n") {
+		if got := runewidth.StringWidth(line); got > maxWidth {
+			t.Fatalf("min-size warning line exceeds width=%d, got=%d line=%q", maxWidth, got, line)
+		}
 	}
 }
 
@@ -723,6 +733,144 @@ func TestTUIRequestHostMigrateRejectsExistingHost(t *testing.T) {
 	m.rebuildTree()
 	m.requestHostMigrate()
 	if !strings.Contains(m.status, "Selected host path exists") {
+		t.Fatalf("unexpected status: %q", m.status)
+	}
+}
+
+func TestTUIRequestRestoreGuardPaths(t *testing.T) {
+	t.Run("wrong source", func(t *testing.T) {
+		m := tuiModel{
+			sessions: []session.Session{{SessionID: "s1", UpdatedAt: time.Now()}},
+			source:   "sessions",
+		}
+		m.rebuildTree()
+		m.requestRestore()
+		if !strings.Contains(m.status, "Current source is sessions") {
+			t.Fatalf("unexpected status: %q", m.status)
+		}
+	})
+
+	t.Run("no selection", func(t *testing.T) {
+		m := tuiModel{source: "trash"}
+		m.requestRestore()
+		if !strings.Contains(m.status, "No session selected") {
+			t.Fatalf("unexpected status: %q", m.status)
+		}
+	})
+
+	t.Run("requires confirm", func(t *testing.T) {
+		m := tuiModel{
+			sessions: []session.Session{{SessionID: "s1", UpdatedAt: time.Now()}},
+			source:   "trash",
+			dryRun:   false,
+			confirm:  false,
+		}
+		m.rebuildTree()
+		m.requestRestore()
+		if !strings.Contains(m.status, "Real restore requires --confirm") {
+			t.Fatalf("unexpected status: %q", m.status)
+		}
+	})
+
+	t.Run("sets pending action", func(t *testing.T) {
+		m := tuiModel{
+			sessions: []session.Session{{SessionID: "s1", UpdatedAt: time.Now()}},
+			source:   "trash",
+			dryRun:   false,
+			confirm:  true,
+			yes:      false,
+		}
+		m.rebuildTree()
+		m.requestRestore()
+		if m.pendingAction != "restore" || m.pendingID != "s1" {
+			t.Fatalf("unexpected pending restore state: action=%q id=%q", m.pendingAction, m.pendingID)
+		}
+		if !strings.Contains(m.status, "Confirm restore") {
+			t.Fatalf("unexpected status: %q", m.status)
+		}
+	})
+}
+
+func TestTUIRequestRestoreDryRunUpdatesStatus(t *testing.T) {
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
+	trashSessionsRoot := filepath.Join(workspace, "trash", "sessions")
+	items, err := session.ScanSessions(trashSessionsRoot)
+	if err != nil {
+		t.Fatalf("scan trash sessions: %v", err)
+	}
+	if len(items) == 0 {
+		t.Fatal("expected trash fixture sessions")
+	}
+
+	m := tuiModel{
+		sessions:     []session.Session{items[0]},
+		source:       "trash",
+		dryRun:       true,
+		confirm:      true,
+		yes:          true,
+		maxBatch:     10,
+		sessionsRoot: filepath.Join(workspace, "sessions"),
+		trashRoot:    filepath.Join(workspace, "trash"),
+		logFile:      filepath.Join(workspace, "logs", "actions.log"),
+		previewCache: map[string][]string{},
+	}
+	m.rebuildTree()
+	m.requestRestore()
+	if !strings.Contains(m.status, "restore: action=restore-dry-run matched=1") {
+		t.Fatalf("unexpected status: %q", m.status)
+	}
+}
+
+func TestTUICommitPendingActionCancelsWhenSelectionChanges(t *testing.T) {
+	now := time.Now()
+	m := tuiModel{
+		sessions: []session.Session{
+			{SessionID: "s1", UpdatedAt: now},
+			{SessionID: "s2", UpdatedAt: now.Add(-time.Minute)},
+		},
+		pendingAction: "delete",
+		pendingID:     "s1",
+		previewCache:  map[string][]string{},
+	}
+	m.rebuildTree()
+	m.cursor = len(m.tree) - 1
+	m.commitPendingAction()
+	if m.pendingAction != "" || m.pendingID != "" {
+		t.Fatalf("pending state not cleared: action=%q id=%q", m.pendingAction, m.pendingID)
+	}
+	if !strings.Contains(m.status, "selection changed") {
+		t.Fatalf("unexpected status: %q", m.status)
+	}
+}
+
+func TestTUICommitPendingHostMigrateCancelsWhenHostMissing(t *testing.T) {
+	m := tuiModel{
+		sessions:      []session.Session{{SessionID: "s1", UpdatedAt: time.Now()}},
+		pendingAction: "migrate-host",
+		pendingID:     "s1",
+		previewCache:  map[string][]string{},
+	}
+	m.rebuildTree()
+	m.commitPendingAction()
+	if m.pendingAction != "" || m.pendingID != "" {
+		t.Fatalf("pending state not cleared: action=%q id=%q", m.pendingAction, m.pendingID)
+	}
+	if !strings.Contains(m.status, "host missing") {
+		t.Fatalf("unexpected status: %q", m.status)
+	}
+}
+
+func TestTUICancelPendingActionClearsState(t *testing.T) {
+	m := tuiModel{
+		pendingAction: "restore",
+		pendingID:     "s1",
+		pendingHost:   "/tmp/missing",
+	}
+	m.cancelPendingAction()
+	if m.pendingAction != "" || m.pendingID != "" || m.pendingHost != "" {
+		t.Fatalf("pending state not cleared: action=%q id=%q host=%q", m.pendingAction, m.pendingID, m.pendingHost)
+	}
+	if !strings.Contains(m.status, "Pending action cancelled") {
 		t.Fatalf("unexpected status: %q", m.status)
 	}
 }
