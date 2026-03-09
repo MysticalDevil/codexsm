@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -44,6 +45,66 @@ func ScanSessions(root string) ([]Session, error) {
 		}
 		return nil, err
 	}
+	return out, nil
+}
+
+// ScanSessionsLimited scans a root and retains only the best limit sessions
+// according to less. A limit <= 0 falls back to full ScanSessions behavior.
+func ScanSessionsLimited(root string, limit int, less func(a, b Session) bool) ([]Session, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return nil, fmt.Errorf("sessions root is empty")
+	}
+	if limit <= 0 {
+		return ScanSessions(root)
+	}
+	if less == nil {
+		return nil, fmt.Errorf("limited scan comparator is nil")
+	}
+
+	out := make([]Session, 0, limit)
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() || filepath.Ext(path) != ".jsonl" {
+			return nil
+		}
+		s, err := scanOne(path)
+		if err != nil {
+			return err
+		}
+		if len(out) < limit {
+			out = append(out, s)
+			return nil
+		}
+		worst := 0
+		for i := 1; i < len(out); i++ {
+			if less(out[worst], out[i]) {
+				worst = i
+			}
+		}
+		if less(s, out[worst]) {
+			out[worst] = s
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []Session{}, nil
+		}
+		return nil, err
+	}
+	slices.SortStableFunc(out, func(a, b Session) int {
+		switch {
+		case less(a, b):
+			return -1
+		case less(b, a):
+			return 1
+		default:
+			return 0
+		}
+	})
 	return out, nil
 }
 

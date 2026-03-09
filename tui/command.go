@@ -178,14 +178,21 @@ func NewCommand(deps CommandDeps) *cobra.Command {
 				scanRoot = filepath.Join(trashRoot, "sessions")
 			}
 
-			items, err := session.ScanSessions(scanRoot)
+			items, err := session.ScanSessionsLimited(scanRoot, limit, func(a, b session.Session) bool {
+				ra := session.EvaluateRisk(a, nil)
+				rb := session.EvaluateRisk(b, nil)
+				if c := riskLevelRank(rb.Level) - riskLevelRank(ra.Level); c != 0 {
+					return c < 0
+				}
+				if c := b.UpdatedAt.Compare(a.UpdatedAt); c != 0 {
+					return c < 0
+				}
+				return strings.Compare(a.SessionID, b.SessionID) < 0
+			})
 			if err != nil {
 				return err
 			}
 			sortTUISessions(items)
-			if limit > 0 && len(items) > limit {
-				items = items[:limit]
-			}
 
 			home, _ := config.ResolvePath("~")
 			if strings.TrimSpace(groupBy) == "" {
@@ -234,7 +241,7 @@ func NewCommand(deps CommandDeps) *cobra.Command {
 	cmd.Flags().StringVar(&sessionsRoot, "sessions-root", "", "sessions root directory")
 	cmd.Flags().StringVar(&trashRoot, "trash-root", "", "trash root directory")
 	cmd.Flags().StringVar(&logFile, "log-file", "", "action log file")
-	cmd.Flags().IntVarP(&limit, "limit", "l", 100, "max sessions loaded into TUI (0 means unlimited)")
+	cmd.Flags().IntVarP(&limit, "limit", "l", 100, "max sessions retained for TUI ordering and rendering (0 means unlimited)")
 	cmd.Flags().StringVar(&groupBy, "group-by", "", "tree group key: host|day|month")
 	cmd.Flags().StringVar(&source, "source", "", "session source: sessions|trash")
 	cmd.Flags().StringVar(&themeName, "theme", "", "TUI theme: tokyonight|catppuccin|gruvbox|onedark|nord|dracula")

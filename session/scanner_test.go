@@ -102,3 +102,24 @@ func TestScanSessionsMarksOverlongMetaLineCorrupted(t *testing.T) {
 		t.Fatalf("expected corrupted health for oversize meta line, got %s", list[0].Health)
 	}
 }
+
+func TestScanSessionsLimitedKeepsTopNByComparator(t *testing.T) {
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
+	root := filepath.Join(workspace, "sessions")
+
+	items, err := ScanSessionsLimited(root, 2, func(a, b Session) bool {
+		if c := b.UpdatedAt.Compare(a.UpdatedAt); c != 0 {
+			return c < 0
+		}
+		return a.SessionID < b.SessionID
+	})
+	if err != nil {
+		t.Fatalf("ScanSessionsLimited: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 sessions, got %d", len(items))
+	}
+	if items[0].UpdatedAt.Before(items[1].UpdatedAt) {
+		t.Fatalf("expected descending updated order, got %+v", items)
+	}
+}
