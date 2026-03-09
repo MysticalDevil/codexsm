@@ -63,3 +63,17 @@ func TestReadConversationHead_LargeConversation(t *testing.T) {
 		t.Fatalf("unexpected head\nwant: %q\ngot:  %q", target, head)
 	}
 }
+
+func TestReadConversationHead_SkipsOverlongLine(t *testing.T) {
+	var b strings.Builder
+	huge := strings.Repeat("x", maxSessionHeadLineBytes+128)
+	target := "please keep this head after oversized line"
+
+	fmt.Fprintf(&b, "%s\n", responseItemJSON("user", huge))
+	fmt.Fprintf(&b, "%s\n", responseItemJSON("user", target))
+
+	head := readConversationHead(bufio.NewReader(strings.NewReader(b.String())))
+	if head != target {
+		t.Fatalf("unexpected head after oversize line\nwant: %q\ngot:  %q", target, head)
+	}
+}

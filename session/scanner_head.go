@@ -14,12 +14,11 @@ func readConversationHead(r *bufio.Reader) string {
 	const maxCandidates = 24
 	candidates := make([]string, 0, maxCandidates)
 	for i := 0; i < maxLines; i++ {
-		line, err := r.ReadBytes('\n')
+		line, truncated, err := readBoundedLine(r, maxSessionHeadLineBytes)
 		if err != nil && !errors.Is(err, io.EOF) {
 			break
 		}
-		line = []byte(strings.TrimSpace(string(line)))
-		if len(line) > 0 {
+		if !truncated && len(line) > 0 {
 			head := conversationHeadFromLine(line)
 			if head != "" {
 				candidates = append(candidates, head)

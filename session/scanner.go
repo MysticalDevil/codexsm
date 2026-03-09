@@ -83,7 +83,7 @@ func scanOne(path string) (Session, error) {
 	}
 
 	r := bufio.NewReader(f)
-	line, err := r.ReadBytes('\n')
+	line, truncated, err := readBoundedLine(r, maxSessionMetaLineBytes)
 	if err != nil && !errors.Is(err, io.EOF) {
 		s.Health = HealthCorrupted
 		if s.CreatedAt.IsZero() {
@@ -92,7 +92,12 @@ func scanOne(path string) (Session, error) {
 		closeScanFile()
 		return s, nil
 	}
-	line = []byte(strings.TrimSpace(string(line)))
+	if truncated {
+		s.Health = HealthCorrupted
+		s.CreatedAt = s.UpdatedAt
+		closeScanFile()
+		return s, nil
+	}
 	if len(line) == 0 {
 		s.Health = HealthMissingMeta
 		s.CreatedAt = s.UpdatedAt
