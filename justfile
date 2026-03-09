@@ -1,6 +1,11 @@
 set shell := ["bash", "-cu"]
 
 go := "go"
+home_dir := env_var_or_default("HOME", ".")
+xdg_cache_home := env_var_or_default("XDG_CACHE_HOME", home_dir + "/.cache")
+xdg_config_home := env_var_or_default("XDG_CONFIG_HOME", home_dir + "/.config")
+xdg_state_home := env_var_or_default("XDG_STATE_HOME", home_dir + "/.local/state")
+xdg_runtime_home := env_var_or_default("XDG_RUNTIME_DIR", xdg_cache_home + "/codexsm/runtime")
 gofumpt := if env_var_or_default("GOFUMPT", "") != "" {
   env_var("GOFUMPT")
 } else {
@@ -8,7 +13,7 @@ gofumpt := if env_var_or_default("GOFUMPT", "") != "" {
 }
 goexperiment := "GOEXPERIMENT=jsonv2"
 go_with_experiment := goexperiment + " " + go
-go_cache_dir := env_var_or_default("GO_CACHE_DIR", "/tmp/codexsm-go-cache")
+go_cache_dir := env_var_or_default("GO_CACHE_DIR", xdg_cache_home + "/codexsm/go-cache")
 go_with_experiment_cache := "env " + goexperiment + " GOCACHE=" + go_cache_dir + " " + go
 version := env_var_or_default("VERSION", "dev")
 bin := env_var_or_default("BIN", "codexsm")
@@ -37,6 +42,10 @@ gen_payload_shape := env_var_or_default("GEN_PAYLOAD_SHAPE", "mixed")
 gen_time_range_start := env_var_or_default("GEN_TIME_RANGE_START", "2026-03-01T00:00:00Z")
 gen_time_range_end := env_var_or_default("GEN_TIME_RANGE_END", "2026-03-31T23:59:59Z")
 gen_output_root := env_var_or_default("GEN_OUTPUT_ROOT", "testdata/_generated/sessions")
+ci_cache_dir := xdg_cache_home + "/codexsm/ci"
+ci_config_dir := xdg_config_home + "/codexsm"
+ci_state_dir := xdg_state_home + "/codexsm/ci"
+ci_runtime_dir := xdg_runtime_home + "/codexsm"
 
 # Show available targets
 default:
@@ -119,25 +128,26 @@ bench-all: bench-session bench-cli bench-tui
 # Run CI smoke checks against built binary and risk fixture dataset
 ci-smoke:
   set -e; \
+  mkdir -p "{{go_cache_dir}}" "{{ci_cache_dir}}" "{{ci_config_dir}}" "{{ci_state_dir}}" "{{ci_runtime_dir}}"; \
   {{go_with_experiment_cache}} build -ldflags="-X main.version={{version}}" -o {{bin}} .; \
   ./{{bin}} restore --help | grep -q -- "--batch-id"; \
   ./{{bin}} delete --help | grep -q -- "--preview"; \
   ./{{bin}} config --help | grep -q -- "show"; \
   ./{{bin}} config --help | grep -q -- "validate"; \
-  CSM_CONFIG=/tmp/codexsm-ci-config.json ./{{bin}} config init --dry-run | grep -q -- "\"sessions_root\""; \
-  if ./{{bin}} restore --batch-id b-test --id deadbeef >/tmp/codexsm-restore-conflict.log 2>&1; then \
+  CSM_CONFIG="{{ci_config_dir}}/config.json" ./{{bin}} config init --dry-run | grep -q -- "\"sessions_root\""; \
+  if ./{{bin}} restore --batch-id b-test --id deadbeef >"{{ci_state_dir}}/restore-conflict.log" 2>&1; then \
     echo "expected restore conflict to fail"; \
     exit 1; \
   fi; \
-  grep -q "cannot be combined" /tmp/codexsm-restore-conflict.log; \
-  ./{{bin}} doctor >/tmp/codexsm-doctor.txt; \
+  grep -q "cannot be combined" "{{ci_state_dir}}/restore-conflict.log"; \
+  ./{{bin}} doctor >"{{ci_state_dir}}/doctor.txt"; \
   rc=0; \
-  ./{{bin}} doctor risk --sessions-root ./testdata/fixtures/risky-static/sessions --format json --sample-limit 3 >/tmp/codexsm-risk.json || rc=$?; \
+  ./{{bin}} doctor risk --sessions-root ./testdata/fixtures/risky-static/sessions --format json --sample-limit 3 >"{{ci_state_dir}}/risk.json" || rc=$?; \
   if [ "$rc" -ne 1 ]; then \
     echo "expected doctor risk fixture check to exit 1, got $rc"; \
     exit 1; \
   fi; \
-  python3 -c 'import json; from pathlib import Path; payload = json.loads(Path("/tmp/codexsm-risk.json").read_text(encoding="utf-8")); assert payload["sessions_total"] >= payload["risk_total"] > 0; assert payload["high"] >= 1; assert payload["sample_limit"] == 3; print("doctor risk json payload validated")'
+  python3 scripts/check_doctor_risk_json.py "{{ci_state_dir}}/risk.json" --sample-limit 3
 
 # Enforce TUI benchmark latency guardrails (ns/op)
 bench-gate:
@@ -232,19 +242,20 @@ gen-sessions-large:
 # Generate a large dataset and run list/doctor risk smoke checks locally
 stress-cli:
   set -e; \
-  tmpdir="$(mktemp -d)"; \
+  mkdir -p "{{go_cache_dir}}" "{{ci_runtime_dir}}" "{{ci_state_dir}}"; \
+  tmpdir="$(mktemp -d "{{ci_runtime_dir}}/stress-cli.XXXXXX")"; \
   trap 'rm -rf "$tmpdir"' EXIT; \
   {{go_with_experiment_cache}} build -ldflags="-X main.version={{version}}" -o {{bin}} .; \
   GEN_OUTPUT_ROOT="$tmpdir/sessions" just gen-sessions-large; \
-  ./codexsm list --sessions-root "$tmpdir/sessions" --limit 50 --format json >/tmp/codexsm-stress-list.json; \
+  ./codexsm list --sessions-root "$tmpdir/sessions" --limit 50 --format json >"{{ci_state_dir}}/stress-list.json"; \
   rc=0; \
-  ./codexsm doctor risk --sessions-root "$tmpdir/sessions" --format json --sample-limit 5 >/tmp/codexsm-stress-risk.json || rc=$?; \
+  ./codexsm doctor risk --sessions-root "$tmpdir/sessions" --format json --sample-limit 5 >"{{ci_state_dir}}/stress-risk.json" || rc=$?; \
   if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then \
     echo "doctor risk stress smoke failed with rc=$rc"; \
     exit 1; \
   fi; \
-  test -s /tmp/codexsm-stress-list.json; \
-  test -s /tmp/codexsm-stress-risk.json
+  test -s "{{ci_state_dir}}/stress-list.json"; \
+  test -s "{{ci_state_dir}}/stress-risk.json"
 
 # Remove generated coverage files
 clean:
