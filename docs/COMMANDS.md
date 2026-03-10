@@ -155,5 +155,5 @@ just cover-gate
 just bench-tui
 just bench-gate
 just check
-just check-release 0.2.5
+just check-release 0.2.7
 ```

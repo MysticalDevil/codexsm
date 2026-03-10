@@ -8,7 +8,7 @@ This checklist is for preparing the next `codexsm` release.
    - `git status --short`
    - `git fetch origin main`
 2. Confirm release version and date:
-   - choose next semver tag (example: `v0.2.5`)
+   - choose next semver tag (example: `v0.2.7`)
    - record release date in `CHANGELOG.md`
 3. Confirm Go environment:
    - `go version` (must be `1.26+`)
@@ -82,7 +82,7 @@ These commands should run successfully in CI/local validation, but they do not y
 CI orchestration note:
 
 - pull requests run the lighter `lint` + `test` jobs
-- tag pushes and published releases additionally run `smoke` + `bench`
+- tag pushes additionally run `smoke` + `bench`
 - `just ci-smoke` is the shared local/CI entrypoint for rollback, doctor, and risk-fixture smoke checks
 
 ## Documentation Updates
@@ -105,4 +105,3 @@ Before tagging, update:
 3. Publish GitHub release from tag.
 4. Verify CI workflow is green for:
    - `push` tag run
-   - `release published` run
