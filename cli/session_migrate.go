@@ -30,7 +30,7 @@ func newSessionMigrateCmd() *cobra.Command {
 		Long: "Copy sessions matched by source cwd to a new destination cwd.\n\n" +
 			"The command copies rollout files and clones matching Codex thread index rows.\n" +
 			"By default it runs in dry-run mode and prints the migration plan without writing.",
-		Example: "  codexsm session migrate --from /home/omega/Project/codexsm --to /home/omega/Worktrees/codexsm/main\n" +
+		Example: "  codexsm session migrate --from /path/to/source/project --to /path/to/target/worktree\n" +
 			"  codexsm session migrate --from /old/path --to /new/path --dry-run=false --confirm\n" +
 			"  codexsm session migrate --file ./migrate.toml\n" +
 			"  codexsm session migrate --from /old/path --to /new/path --branch main --since 2026-03-10",

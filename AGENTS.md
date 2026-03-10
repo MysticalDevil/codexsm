@@ -6,5 +6,5 @@
 - The active main worktree is `~/Worktrees/codexsm/main`.
 - The Zig experimental worktree is `~/Worktrees/codexsm/zig` and shares `~/Worktrees/codexsm/main/.git`.
 - The C experimental worktree is `~/Worktrees/codexsm/c` as a separate local clone.
-- These local repos should point directly at the GitHub remote for `MysticalDevil/codexsm` instead of depending on `~/Project/codexsm`.
+- These local repos should point directly at the GitHub remote for `MysticalDevil/codexsm`.
 - When describing local paths in docs or notes, prefer `~`-based paths instead of `/home/...`.
