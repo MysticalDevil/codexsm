@@ -4,8 +4,8 @@ This document records lightweight benchmark baselines for `codexsm`.
 
 ## Baseline Snapshot
 
-- Date: `2026-03-09`
-- Commit: `637a4a4`
+- Date: `2026-03-10`
+- Commit: `01c80e2`
 - Go: `go1.26.1 linux/amd64`
 - CPU: `AMD Ryzen 7 4800H with Radeon Graphics`
 - Runs: `go test -run '^$' -bench ... -benchmem -count=3`
@@ -23,14 +23,14 @@ go test -run '^$' -bench 'Benchmark(SortTUISessions_3k|SortTUISessions_10k|Build
 
 | Benchmark | Median ns/op | Median B/op | Median allocs/op |
 | --- | ---: | ---: | ---: |
-| `BenchmarkScanSessions` | `1,007,494` | `197,501` | `682` |
-| `BenchmarkFilterSessions/all` | `3,710` | `5,080` | `4` |
-| `BenchmarkFilterSessions/host_head_health` | `5,364` | `5,080` | `4` |
-| `BenchmarkFilterSessions/older_than` | `2,826` | `4,888` | `2` |
-| `BenchmarkScanSessionsLimited_3k` | `98,246,819` | `17,477,820` | `60,275` |
-| `BenchmarkScanSessions_AllVsLimited_3k/all` | `88,038,863` | `19,257,079` | `60,371` |
-| `BenchmarkScanSessions_AllVsLimited_3k/limited_100` | `91,810,551` | `17,519,064` | `60,305` |
-| `BenchmarkScanSessions_ExtremeMix` | `35,036,053` | `8,200,257` | `24,248` |
+| `BenchmarkScanSessions` | `872,434` | `197,588` | `682` |
+| `BenchmarkFilterSessions/all` | `3,272` | `5,080` | `4` |
+| `BenchmarkFilterSessions/host_head_health` | `4,844` | `5,080` | `4` |
+| `BenchmarkFilterSessions/older_than` | `2,205` | `4,888` | `2` |
+| `BenchmarkScanSessionsLimited_3k` | `83,763,440` | `17,501,494` | `60,274` |
+| `BenchmarkScanSessions_AllVsLimited_3k/all` | `80,239,823` | `19,181,414` | `60,343` |
+| `BenchmarkScanSessions_AllVsLimited_3k/limited_100` | `81,762,990` | `17,492,142` | `60,278` |
+| `BenchmarkScanSessions_ExtremeMix` | `34,510,266` | `9,151,241` | `24,286` |
 
 Observation:
 
@@ -40,10 +40,10 @@ Observation:
 
 | Benchmark | Median ns/op | Median B/op | Median allocs/op |
 | --- | ---: | ---: | ---: |
-| `BenchmarkDoctorRiskJSON` | `20,815,548` | `4,924,777` | `17,077` |
-| `BenchmarkRenderTable` | `3,876,639` | `2,161,013` | `15,674` |
-| `BenchmarkRenderTable_LargeColumns` | `6,744,459` | `4,184,035` | `18,081` |
-| `BenchmarkRenderJSON` | `2,147,482` | `1,188,728` | `9` |
+| `BenchmarkDoctorRiskJSON` | `17,970,034` | `4,923,236` | `17,073` |
+| `BenchmarkRenderTable` | `3,313,728` | `2,161,020` | `15,673` |
+| `BenchmarkRenderTable_LargeColumns` | `5,773,960` | `4,184,011` | `18,082` |
+| `BenchmarkRenderJSON` | `2,066,419` | `1,202,056` | `10` |
 
 Observation:
 
@@ -53,15 +53,15 @@ Observation:
 
 | Benchmark | Median ns/op | Median B/op | Median allocs/op |
 | --- | ---: | ---: | ---: |
-| `BenchmarkSortTUISessions_3k` | `2,553,720` | `409,601` | `1` |
-| `BenchmarkSortTUISessions_10k` | `9,159,531` | `1,368,064` | `1` |
-| `BenchmarkBuildPreviewLines_LargeSession` | `39,065,986` | `910,256` | `13,221` |
-| `BenchmarkBuildPreviewLines_OversizeUser` | `150,375,845` | `3,245,960` | `18,076` |
-| `BenchmarkBuildPreviewLines_OversizeAssistant` | `230,387,602` | `4,950,398` | `30,124` |
-| `BenchmarkBuildPreviewLines_UnicodeWide` | `159,790,651` | `7,423,374` | `15,135` |
-| `BenchmarkPreviewIndexLoad_1k` | `2,253,474` | `731,142` | `6,048` |
-| `BenchmarkPreviewIndexUpsert_1k` | `6,860,861` | `1,231,998` | `9,132` |
-| `BenchmarkPreviewIndexUpsert_Trimmed` | `50,964,512` | `29,871,661` | `6,509` |
+| `BenchmarkSortTUISessions_3k` | `2,274,792` | `409,602` | `1` |
+| `BenchmarkSortTUISessions_10k` | `8,376,444` | `1,368,064` | `1` |
+| `BenchmarkBuildPreviewLines_LargeSession` | `33,620,444` | `909,091` | `13,220` |
+| `BenchmarkBuildPreviewLines_OversizeUser` | `134,269,530` | `3,229,860` | `18,064` |
+| `BenchmarkBuildPreviewLines_OversizeAssistant` | `209,001,010` | `4,945,912` | `30,107` |
+| `BenchmarkBuildPreviewLines_UnicodeWide` | `143,551,470` | `7,421,062` | `15,129` |
+| `BenchmarkPreviewIndexLoad_1k` | `1,954,543` | `731,155` | `6,048` |
+| `BenchmarkPreviewIndexUpsert_1k` | `6,132,681` | `1,231,516` | `9,127` |
+| `BenchmarkPreviewIndexUpsert_Trimmed` | `46,960,555` | `28,850,249` | `6,474` |
 
 Observation:
 
