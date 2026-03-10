@@ -9,7 +9,6 @@
 | Architecture | [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) |
 | Command Guide | [docs/COMMANDS.md](./docs/COMMANDS.md) |
 | Release Checklist | [docs/RELEASE.md](./docs/RELEASE.md) |
-| Docs Index | [docs/INDEX.md](./docs/INDEX.md) |
 | Changelog | [CHANGELOG.md](./CHANGELOG.md) |
 
 ## Compatibility

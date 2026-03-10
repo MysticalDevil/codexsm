@@ -93,8 +93,6 @@ Before tagging, update:
    - move completed items from `[Unreleased]` into the new version section.
 2. `README.md` and `docs/COMMANDS.md`:
    - update version examples (install and `just check-release <version>`).
-3. `docs/INDEX.md`:
-   - verify links include this checklist and remain valid.
 
 ## Tag And Release
 
