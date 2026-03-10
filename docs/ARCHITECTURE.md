@@ -2,37 +2,63 @@
 
 ## Decoupling Status
 
-Current codebase is acceptable for the current release scope and does not require mandatory large refactor before shipping.
+Current codebase is acceptable for the current release scope and does not require a mandatory large refactor before shipping.
 
-Known hot spot:
+Known hot spots:
 
-- `cli/delete.go` and `cli/restore.go` still contain command orchestration + output responsibilities and should continue converging to thinner wrappers.
-- `session/scanner.go` has been split, but scan/parse/score tuning can still be optimized with benchmarks.
+- `cli/delete.go` and `cli/restore.go` still mix orchestration, output, and guard logic and should continue converging toward thinner wrappers.
+- `session/*` has been split into more focused scanner, message, and risk helpers, but scan and preview hot paths still need to be tuned with benchmark feedback.
+- `tui/*` rendering is now more modular, but narrow-width behavior still depends on coordinated changes across layout metrics, keybar rendering, and info-row formatting.
 
 ## Architecture Design
 
-`codexsm` follows a layered approach:
+`codexsm` follows a layered approach. The current dependency view is:
 
 ```text
-+-----------------------------+
-| main.go                     |
-| cli/root.go                 |
-+-------------+---------------+
-              |
-              v
-+-----------------------------+
-| CLI Commands (cli/*)        |
-| list/group/delete/restore   |
-| doctor/config/tui bridge    |
-+-------------+---------------+
-              |
-      +-------+-------+
-      |               |
-      v               v
-+-----------+   +-------------------+
-| tui/*     |   | session/audit/... |
-| UI logic  |   | domain + storage  |
-+-----------+   +-------------------+
+External/runtime:
+- Go std + encoding/json/v2
+- cobra
+- bubbletea / lipgloss / go-runewidth
+
+                                     +----------------------+
+                                     | config/*             |
+                                     | path/config resolve  |
+                                     +----------+-----------+
+                                                |
+                                                v
++------------------+     +----------------------+----------------------+
+| main.go          | --> | cli/*                                        |
+| cli/root.go      |     | list/group/delete/restore/doctor/tui/config |
++------------------+     +----------------------+----------------------+
+                             |                |                 |
+                             |                |                 +------> cobra
+                             |                |
+                             |                +------------------------> Go std + jsonv2
+                             |
+                             v
+                +----------------------+----------------------+
+                |                                             |
+                v                                             v
+        +-------------------+                         +-------------------+
+        | tui/*             |                         | audit/*           |
+        | state/view/action |                         | batch/action logs |
+        +---------+---------+                         +-------------------+
+                  |
+                  +------------------------------------------> bubbletea / lipgloss / go-runewidth
+                  |
+                  v
+        +-------------------+
+        | session/*         |
+        | scan/filter/risk  |
+        +---------+---------+
+                  |
+                  +------------------------------------------> Go std + jsonv2
+                  |
+                  v
+        +-------------------+
+        | internal/*        |
+        | ops/fileutil/...  |
+        +-------------------+
 ```
 
 1. Entry and command wiring:
@@ -88,23 +114,36 @@ Boundary intent:
 - `tui/*` should own interaction state, key handling, and rendering.
 - `session/*`, `audit/*`, and `config/*` should remain reusable by both CLI and TUI.
 
+Shared session-processing boundaries:
+
+- `session/message_parse.go` and `session/message_rules.go` normalize transcript messages and scoring rules used by both scanner/head extraction and preview extraction.
+- `session/scanner_head.go` builds the session head used by list/group/TUI tree flows.
+- `session/preview_entries.go` and friends build normalized preview entries for TUI preview rendering.
+- `session/risk.go`, `session/risk_scan.go`, and `session/integrity.go` separate base health risk detection from optional integrity verification.
+- `session/listing.go` and `session/grouping.go` now own most list/group data preparation so CLI wrappers mainly handle argument parsing and rendering.
+
 Rollback flow:
 
 1. `delete` (soft-delete) writes one `batch_id` into action logs.
 2. `restore --batch-id <id>` resolves session ids from audit logs.
 3. restore scans trash and restores matched sessions under normal safety guards.
 
-## Performance Baselines
+## Performance Hot Paths
 
-Current benchmark baselines are tracked in Go benchmark tests:
+The current hot paths that deserve benchmark attention are:
 
-- `session/bench_test.go`
-  - `BenchmarkScanSessions`
-  - `BenchmarkFilterSessions`
-- `cli/list_bench_test.go`
-  - `BenchmarkRenderTable`
+- session tree scanning and selector filtering:
+  - `session/bench_test.go`
+  - `session/scanner*.go`
+- CLI table/JSON/risk rendering:
+  - `cli/list_bench_test.go`
+  - `cli/doctor*.go`
+- TUI preview construction and preview index persistence:
+  - `tui/bench_test.go`
+  - `tui/preview.go`
+  - `tui/preview_index.go`
 
-These baselines are intended to protect refactors in scan/filter/render hot paths.
+Current baselines and rerun commands are tracked in [docs/BENCHMARKS.md](./BENCHMARKS.md).
 
 ## Theme And Color Conventions
 
