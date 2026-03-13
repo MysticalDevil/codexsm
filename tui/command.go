@@ -70,6 +70,7 @@ type tuiModel struct {
 	yes                bool
 	hardDelete         bool
 	maxBatch           int
+	maxBatchChanged    bool
 	pendingAction      string
 	pendingID          string
 	pendingHost        string
@@ -231,6 +232,7 @@ func NewCommand(deps CommandDeps) *cobra.Command {
 				yes:                yes,
 				hardDelete:         hardDelete,
 				maxBatch:           maxBatch,
+				maxBatchChanged:    cmd.Flags().Changed("max-batch"),
 			}
 			m.rebuildTree()
 			_, err = tea.NewProgram(m, tea.WithAltScreen()).Run()
@@ -250,7 +252,7 @@ func NewCommand(deps CommandDeps) *cobra.Command {
 	cmd.Flags().BoolVar(&confirm, "confirm", false, "required for real delete/restore from TUI")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip TUI confirmation prompts")
 	cmd.Flags().BoolVar(&hardDelete, "hard", false, "hard delete on session source")
-	cmd.Flags().IntVar(&maxBatch, "max-batch", 50, "max sessions allowed for one real TUI action")
+	cmd.Flags().IntVar(&maxBatch, "max-batch", 100, "max sessions allowed for one real TUI action")
 	return cmd
 }
 

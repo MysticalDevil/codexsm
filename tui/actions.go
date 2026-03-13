@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/MysticalDevil/codexsm/audit"
-	"github.com/MysticalDevil/codexsm/internal/restoreexec"
 	"github.com/MysticalDevil/codexsm/session"
+	"github.com/MysticalDevil/codexsm/usecase"
 )
 
 func (m *tuiModel) runDryRunPreview() {
@@ -81,19 +81,20 @@ func (m *tuiModel) requestHostMigrate() {
 
 func (m *tuiModel) runDelete(selected session.Session) {
 	sel := session.Selector{ID: selected.SessionID}
-	sum, err := session.DeleteSessions(
-		[]session.Session{selected},
-		sel,
-		session.DeleteOptions{
-			DryRun:       m.dryRun,
-			Confirm:      m.confirm,
-			Yes:          true,
-			Hard:         m.hardDelete,
-			MaxBatch:     max(1, m.maxBatch),
-			SessionsRoot: m.sessionsRoot,
-			TrashRoot:    m.trashRoot,
-		},
-	)
+	out, err := usecase.RunDeleteAction(usecase.DeleteActionInput{
+		Candidates:      []session.Session{selected},
+		Selector:        sel,
+		DryRun:          m.dryRun,
+		Confirm:         m.confirm,
+		Yes:             true,
+		Hard:            m.hardDelete,
+		SessionsRoot:    m.sessionsRoot,
+		TrashRoot:       m.trashRoot,
+		MaxBatch:        max(1, m.maxBatch),
+		MaxBatchChanged: m.maxBatchChanged,
+		RealDefault:     usecase.DefaultMaxBatchTUIReal,
+		DryRunDefault:   usecase.DefaultMaxBatchTUIDryRun,
+	})
 	m.pendingAction = ""
 	m.pendingID = ""
 	m.pendingHost = ""
@@ -101,6 +102,7 @@ func (m *tuiModel) runDelete(selected session.Session) {
 		m.status = "delete failed: " + err.Error()
 		return
 	}
+	sum := out.Summary
 	m.persistActionLog(sum.Action, sum.Simulation, sel, []session.Session{selected}, sum.AffectedBytes, sum.Results, sum.ErrorSummary)
 	m.status = fmt.Sprintf(
 		"delete: action=%s matched=%d affected=%s",
@@ -129,19 +131,20 @@ func (m *tuiModel) migrateCandidatesForHost(host string) []session.Session {
 
 func (m *tuiModel) runHostMigrate(host string, candidates []session.Session) {
 	sel := session.Selector{HostContains: host}
-	sum, err := session.DeleteSessions(
-		candidates,
-		sel,
-		session.DeleteOptions{
-			DryRun:       m.dryRun,
-			Confirm:      m.confirm,
-			Yes:          true,
-			Hard:         false,
-			MaxBatch:     max(1, m.maxBatch),
-			SessionsRoot: m.sessionsRoot,
-			TrashRoot:    m.trashRoot,
-		},
-	)
+	out, err := usecase.RunDeleteAction(usecase.DeleteActionInput{
+		Candidates:      candidates,
+		Selector:        sel,
+		DryRun:          m.dryRun,
+		Confirm:         m.confirm,
+		Yes:             true,
+		Hard:            false,
+		SessionsRoot:    m.sessionsRoot,
+		TrashRoot:       m.trashRoot,
+		MaxBatch:        max(1, m.maxBatch),
+		MaxBatchChanged: m.maxBatchChanged,
+		RealDefault:     usecase.DefaultMaxBatchTUIReal,
+		DryRunDefault:   usecase.DefaultMaxBatchTUIDryRun,
+	})
 	m.pendingAction = ""
 	m.pendingID = ""
 	m.pendingHost = ""
@@ -149,6 +152,7 @@ func (m *tuiModel) runHostMigrate(host string, candidates []session.Session) {
 		m.status = "migrate-host failed: " + err.Error()
 		return
 	}
+	sum := out.Summary
 	m.persistActionLog(sum.Action, sum.Simulation, sel, candidates, sum.AffectedBytes, sum.Results, sum.ErrorSummary)
 	m.status = fmt.Sprintf(
 		"migrate-host: action=%s matched=%d affected=%s",
@@ -186,18 +190,19 @@ func (m *tuiModel) requestRestore() {
 
 func (m *tuiModel) runRestore(selected session.Session) {
 	sel := session.Selector{ID: selected.SessionID}
-	sum, err := restoreexec.Execute(
-		[]session.Session{selected},
-		sel,
-		restoreexec.Options{
-			DryRun:            m.dryRun,
-			Confirm:           m.confirm,
-			Yes:               true,
-			MaxBatch:          max(1, m.maxBatch),
-			SessionsRoot:      m.sessionsRoot,
-			TrashSessionsRoot: filepath.Join(m.trashRoot, "sessions"),
-		},
-	)
+	out, err := usecase.RunRestoreAction(usecase.RestoreActionInput{
+		Candidates:        []session.Session{selected},
+		Selector:          sel,
+		DryRun:            m.dryRun,
+		Confirm:           m.confirm,
+		Yes:               true,
+		SessionsRoot:      m.sessionsRoot,
+		TrashSessionsRoot: filepath.Join(m.trashRoot, "sessions"),
+		MaxBatch:          max(1, m.maxBatch),
+		MaxBatchChanged:   m.maxBatchChanged,
+		RealDefault:       usecase.DefaultMaxBatchTUIReal,
+		DryRunDefault:     usecase.DefaultMaxBatchTUIDryRun,
+	})
 	m.pendingAction = ""
 	m.pendingID = ""
 	m.pendingHost = ""
@@ -205,6 +210,7 @@ func (m *tuiModel) runRestore(selected session.Session) {
 		m.status = "restore failed: " + err.Error()
 		return
 	}
+	sum := out.Summary
 	m.persistActionLog(sum.Action, sum.Simulation, sel, []session.Session{selected}, sum.AffectedBytes, sum.Results, sum.ErrorSummary)
 	m.status = fmt.Sprintf(
 		"restore: action=%s matched=%d affected=%s",
@@ -263,20 +269,17 @@ func (m *tuiModel) persistActionLog(action string, simulation bool, sel session.
 	if strings.TrimSpace(m.logFile) == "" {
 		return
 	}
-	rec := audit.ActionRecord{
-		Timestamp:     time.Now().UTC(),
-		Action:        action,
-		Simulation:    simulation,
-		Selector:      sel,
-		MatchedCount:  len(items),
-		AffectedBytes: affected,
-		Results:       results,
-		ErrorSummary:  errSummary,
-		Sessions:      make([]audit.SessionRef, 0, len(items)),
-	}
-	for _, s := range items {
-		rec.Sessions = append(rec.Sessions, audit.SessionRef{SessionID: s.SessionID, Path: s.Path})
-	}
+	rec := audit.BuildActionRecord(
+		"",
+		time.Now().UTC(),
+		action,
+		simulation,
+		sel,
+		items,
+		affected,
+		results,
+		errSummary,
+	)
 	if err := audit.WriteActionLog(m.logFile, rec); err != nil {
 		m.status = "action succeeded, log write failed: " + err.Error()
 	}
