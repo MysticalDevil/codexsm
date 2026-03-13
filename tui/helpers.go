@@ -2,9 +2,9 @@ package tui
 
 import (
 	"fmt"
-	"os"
-	"strings"
 	"time"
+
+	"github.com/MysticalDevil/codexsm/internal/core"
 )
 
 func shortID(id string) string {
@@ -36,15 +36,5 @@ func formatBytesIEC(size int64) string {
 }
 
 func compactHomePath(path, home string) string {
-	if home == "" {
-		return path
-	}
-	if path == home {
-		return "~"
-	}
-	prefix := home + string(os.PathSeparator)
-	if strings.HasPrefix(path, prefix) {
-		return "~" + string(os.PathSeparator) + strings.TrimPrefix(path, prefix)
-	}
-	return path
+	return core.CompactHomePath(path, home)
 }

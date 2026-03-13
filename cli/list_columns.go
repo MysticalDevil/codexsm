@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/session"
 )
 
@@ -90,9 +91,9 @@ func listColumnValue(key string, s session.Session, home string, headWidth int, 
 		if strings.TrimSpace(s.HostDir) == "" {
 			return "-"
 		}
-		return compactHomePath(s.HostDir, home)
+		return core.CompactHomePath(s.HostDir, home)
 	case "path":
-		return compactHomePath(s.Path, home)
+		return core.CompactHomePath(s.Path, home)
 	case "name":
 		return filepath.Base(s.Path)
 	case "head":
@@ -159,20 +160,6 @@ func formatBytesIEC(size int64) string {
 	return fmt.Sprintf("%.1f%s", value, units[unit])
 }
 
-func compactHomePath(path, home string) string {
-	if home == "" {
-		return path
-	}
-	if path == home {
-		return "~"
-	}
-	prefix := home + string(os.PathSeparator)
-	if strings.HasPrefix(path, prefix) {
-		return "~" + string(os.PathSeparator) + strings.TrimPrefix(path, prefix)
-	}
-	return path
-}
-
 func writeListDelimited(out io.Writer, sessions []session.Session, sep rune, noHeader bool, columns []listColumn) error {
 	home, _ := os.UserHomeDir()
 	w := csv.NewWriter(out)
@@ -195,7 +182,7 @@ func writeListDelimited(out io.Writer, sessions []session.Session, sep rune, noH
 			case "updated_at":
 				record = append(record, formatCSVTime(s.UpdatedAt))
 			case "path":
-				record = append(record, compactHomePath(s.Path, home))
+				record = append(record, core.CompactHomePath(s.Path, home))
 			default:
 				record = append(record, listColumnValue(c.Key, s, home, 0, false))
 			}

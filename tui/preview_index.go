@@ -20,7 +20,7 @@ func loadPreviewIndexEntry(path, key string) ([]string, bool, error) {
 	}
 	if corrupted {
 		// Best-effort corruption recovery: compact to valid entries only.
-		_ = rewritePreviewIndex(path, entries, maxInt(1, len(entries)), maxPreviewIndexBytes)
+		_ = rewritePreviewIndex(path, entries, max(1, len(entries)), maxPreviewIndexBytes)
 	}
 	rec, ok := entries[key]
 	if !ok {
@@ -183,13 +183,6 @@ func withPreviewIndexLock(lockPath string, timeout time.Duration, fn func() erro
 		}
 		time.Sleep(15 * time.Millisecond)
 	}
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func previewIndexRecordBytes(rec previewIndexRecord) int64 {

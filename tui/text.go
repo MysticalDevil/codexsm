@@ -6,13 +6,6 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func fitCell(v string, width int) string {
 	if width <= 0 {
 		return ""

@@ -42,7 +42,7 @@ func buildPreviewLines(path string, width, lines int, theme tuiTheme) []string {
 	}
 
 	const maxPreviewLines = 600
-	out := make([]string, 0, minInt(maxPreviewLines, lines*10))
+	out := make([]string, 0, min(maxPreviewLines, lines*10))
 	items, err := usecase.ExtractPreviewMessages(path, maxPreviewLines)
 	if err != nil && len(items) == 0 && !errors.Is(err, usecase.ErrPreviewEntryTooLong) {
 		out = append(out, " failed to open preview: "+err.Error())

@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mattn/go-runewidth"
 
+	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/internal/tui/layout"
 	"github.com/MysticalDevil/codexsm/session"
@@ -991,7 +992,7 @@ func TestSortTUISessions_PrioritizesRisk(t *testing.T) {
 		{SessionID: "missing-old", UpdatedAt: now.Add(-2 * time.Hour), Health: session.HealthMissingMeta},
 		{SessionID: "corrupted-old", UpdatedAt: now.Add(-4 * time.Hour), Health: session.HealthCorrupted},
 	}
-	usecase.SortTUISessionsByRisk(items, nil)
+	core.SortSessionsByRisk(items, nil, nil)
 	if items[0].Health != session.HealthCorrupted {
 		t.Fatalf("expected corrupted first, got %#v", items)
 	}

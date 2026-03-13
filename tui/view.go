@@ -128,7 +128,7 @@ func (m tuiModel) View() string {
 		Width(rightW).
 		Height(infoInnerH).
 		BorderForeground(lipgloss.Color(infoBorder)).
-		Render(strings.Join(infoLines[:minInt(len(infoLines), 3)], "\n"))
+		Render(strings.Join(infoLines[:min(len(infoLines), 3)], "\n"))
 
 	rightBlock := lipgloss.JoinVertical(lipgloss.Left, infoPane, previewPane)
 	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, strings.Repeat(" ", metrics.GapW), rightBlock)

@@ -193,7 +193,7 @@ func (m *tuiModel) detailRows(selected session.Session, rightW int) (header stri
 		host += " (missing)"
 	}
 	contentWidth := max(24, rightW)
-	hostW := max(12, minInt(28, contentWidth/3))
+	hostW := max(12, min(28, contentWidth/3))
 	type col struct {
 		name string
 		val  string
