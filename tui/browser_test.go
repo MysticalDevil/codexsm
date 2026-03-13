@@ -15,6 +15,7 @@ import (
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/internal/tui/layout"
 	"github.com/MysticalDevil/codexsm/session"
+	"github.com/MysticalDevil/codexsm/usecase"
 )
 
 var ansiSeqRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -539,7 +540,7 @@ func TestTUIViewAndHelpersCoverage(t *testing.T) {
 	if step := m.previewPageStep(); step <= 0 {
 		t.Fatalf("previewPageStep should be positive, got %d", step)
 	}
-	if !isPreviewNoise("filesystem sandboxing note") {
+	if !usecase.IsPreviewNoiseText("filesystem sandboxing note") {
 		t.Fatal("expected preview noise detection")
 	}
 }

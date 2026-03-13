@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"slices"
 	"strings"
 	"text/tabwriter"
-	"time"
 
 	"github.com/MysticalDevil/codexsm/config"
 	"github.com/MysticalDevil/codexsm/session"
+	"github.com/MysticalDevil/codexsm/usecase"
 	"github.com/MysticalDevil/codexsm/util"
 
 	"github.com/spf13/cobra"
@@ -80,15 +79,17 @@ func newListCmd() *cobra.Command {
 				return err
 			}
 
-			sessions, err := session.ScanSessions(sessionsRoot)
+			result, err := usecase.ListSessions(usecase.ListInput{
+				SessionsRoot: sessionsRoot,
+				Selector:     sel,
+				SortBy:       sortBy,
+				Order:        order,
+			})
 			if err != nil {
 				return err
 			}
-			filteredAll := session.FilterSessions(sessions, sel, time.Now())
-			if err := sortSessions(filteredAll, sortBy, order); err != nil {
-				return err
-			}
-			total := len(filteredAll)
+			filteredAll := result.Items
+			total := result.Total
 
 			if pager && !cmd.Flags().Changed("limit") {
 				limit = 0
@@ -166,91 +167,6 @@ func newListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&order, "order", "desc", "sort order: asc|desc")
 
 	return cmd
-}
-
-func sortSessions(items []session.Session, sortBy, order string) error {
-	if len(items) <= 1 {
-		return nil
-	}
-
-	by := strings.ToLower(strings.TrimSpace(sortBy))
-	if by == "" {
-		by = "updated_at"
-	}
-	switch by {
-	case "updated_at", "created_at", "size", "health", "id", "session_id":
-	default:
-		return fmt.Errorf("invalid --sort value %q", sortBy)
-	}
-
-	desc := true
-	switch strings.ToLower(strings.TrimSpace(order)) {
-	case "", "desc":
-		desc = true
-	case "asc":
-		desc = false
-	default:
-		return fmt.Errorf("invalid --order value %q", order)
-	}
-
-	healthRank := func(h session.Health) int {
-		switch h {
-		case session.HealthOK:
-			return 0
-		case session.HealthMissingMeta:
-			return 1
-		case session.HealthCorrupted:
-			return 2
-		default:
-			return 3
-		}
-	}
-
-	compare := func(a, b session.Session) int {
-		switch by {
-		case "updated_at":
-			return a.UpdatedAt.Compare(b.UpdatedAt)
-		case "created_at":
-			return a.CreatedAt.Compare(b.CreatedAt)
-		case "size":
-			if a.SizeBytes < b.SizeBytes {
-				return -1
-			}
-			if a.SizeBytes > b.SizeBytes {
-				return 1
-			}
-			return 0
-		case "health":
-			ra := healthRank(a.Health)
-			rb := healthRank(b.Health)
-			if ra < rb {
-				return -1
-			}
-			if ra > rb {
-				return 1
-			}
-			return 0
-		case "id", "session_id":
-			return strings.Compare(a.SessionID, b.SessionID)
-		default:
-			return 0
-		}
-	}
-
-	slices.SortStableFunc(items, func(a, b session.Session) int {
-		c := compare(a, b)
-		if c == 0 {
-			c = strings.Compare(a.SessionID, b.SessionID)
-		}
-		if c == 0 {
-			c = strings.Compare(a.Path, b.Path)
-		}
-		if desc {
-			c = -c
-		}
-		return c
-	})
-	return nil
 }
 
 func renderTable(sessions []session.Session, total int, opts listRenderOptions) (string, error) {

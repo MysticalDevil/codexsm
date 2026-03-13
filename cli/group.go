@@ -6,22 +6,15 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"text/tabwriter"
-	"time"
 
-	"github.com/MysticalDevil/codexsm/session"
+	"github.com/MysticalDevil/codexsm/usecase"
 
 	"github.com/spf13/cobra"
 )
 
-type groupStat struct {
-	Group     string `json:"group"`
-	Count     int    `json:"count"`
-	SizeBytes int64  `json:"size_bytes"`
-	Latest    string `json:"latest"`
-}
+type groupStat = usecase.GroupStat
 
 func newGroupCmd() *cobra.Command {
 	var (
@@ -63,18 +56,16 @@ func newGroupCmd() *cobra.Command {
 				return err
 			}
 
-			sessions, err := session.ScanSessions(sessionsRoot)
+			stats, err := usecase.GroupSessions(usecase.GroupInput{
+				SessionsRoot: sessionsRoot,
+				Selector:     sel,
+				By:           by,
+				SortBy:       sortBy,
+				Order:        order,
+				Limit:        limit,
+			})
 			if err != nil {
 				return err
-			}
-			filtered := session.FilterSessions(sessions, sel, time.Now())
-
-			stats, err := buildGroupStats(filtered, by, sortBy, order)
-			if err != nil {
-				return err
-			}
-			if limit > 0 && len(stats) > limit {
-				stats = stats[:limit]
 			}
 
 			switch strings.ToLower(strings.TrimSpace(format)) {
@@ -121,109 +112,6 @@ func newGroupCmd() *cobra.Command {
 	cmd.Flags().StringVar(&colorMode, "color", "always", "color mode: auto|always|never")
 
 	return cmd
-}
-
-func buildGroupStats(sessions []session.Session, by, sortBy, order string) ([]groupStat, error) {
-	mode := strings.ToLower(strings.TrimSpace(by))
-	if mode == "" {
-		mode = "day"
-	}
-	if mode != "day" && mode != "health" {
-		return nil, fmt.Errorf("invalid --by %q (allowed: day, health)", by)
-	}
-	sortMode := strings.ToLower(strings.TrimSpace(sortBy))
-	if sortMode == "" || sortMode == "auto" {
-		if mode == "day" {
-			sortMode = "group"
-		} else {
-			sortMode = "count"
-		}
-	}
-	switch sortMode {
-	case "group", "count", "size", "latest":
-	default:
-		return nil, fmt.Errorf("invalid --sort %q (allowed: auto, group, count, size, latest)", sortBy)
-	}
-	desc := true
-	switch strings.ToLower(strings.TrimSpace(order)) {
-	case "", "desc":
-		desc = true
-	case "asc":
-		desc = false
-	default:
-		return nil, fmt.Errorf("invalid --order %q (allowed: asc, desc)", order)
-	}
-
-	type agg struct {
-		count  int
-		size   int64
-		latest time.Time
-	}
-	m := make(map[string]*agg)
-	for _, s := range sessions {
-		var key string
-		switch mode {
-		case "day":
-			key = s.UpdatedAt.Local().Format("2006-01-02")
-		case "health":
-			key = string(s.Health)
-		}
-		if key == "" {
-			key = "-"
-		}
-		a := m[key]
-		if a == nil {
-			a = &agg{}
-			m[key] = a
-		}
-		a.count++
-		a.size += s.SizeBytes
-		if s.UpdatedAt.After(a.latest) {
-			a.latest = s.UpdatedAt
-		}
-	}
-
-	out := make([]groupStat, 0, len(m))
-	for key, a := range m {
-		latest := "-"
-		if !a.latest.IsZero() {
-			latest = formatDisplayTime(a.latest)
-		}
-		out = append(out, groupStat{Group: key, Count: a.count, SizeBytes: a.size, Latest: latest})
-	}
-
-	sort.Slice(out, func(i, j int) bool {
-		if desc {
-			return groupLess(out[j], out[i], sortMode)
-		}
-		return groupLess(out[i], out[j], sortMode)
-	})
-
-	return out, nil
-}
-
-func groupLess(a, b groupStat, sortMode string) bool {
-	switch sortMode {
-	case "group":
-		return a.Group < b.Group
-	case "count":
-		if a.Count == b.Count {
-			return a.Group < b.Group
-		}
-		return a.Count < b.Count
-	case "size":
-		if a.SizeBytes == b.SizeBytes {
-			return a.Group < b.Group
-		}
-		return a.SizeBytes < b.SizeBytes
-	case "latest":
-		if a.Latest == b.Latest {
-			return a.Group < b.Group
-		}
-		return a.Latest < b.Latest
-	default:
-		return a.Group < b.Group
-	}
 }
 
 func renderGroupTable(stats []groupStat, by, colorMode string, out io.Writer) (string, error) {

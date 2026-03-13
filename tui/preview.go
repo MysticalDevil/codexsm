@@ -1,14 +1,12 @@
 package tui
 
 import (
-	"bufio"
-	"encoding/json/jsontext"
-	"encoding/json/v2"
+	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
+	"github.com/MysticalDevil/codexsm/usecase"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 )
@@ -45,27 +43,13 @@ func buildPreviewLines(path string, width, lines int, theme tuiTheme) []string {
 
 	const maxPreviewLines = 600
 	out := make([]string, 0, minInt(maxPreviewLines, lines*10))
-	f, err := os.Open(path)
-	if err != nil {
+	items, err := usecase.ExtractPreviewMessages(path, maxPreviewLines)
+	if err != nil && len(items) == 0 && !errors.Is(err, usecase.ErrPreviewEntryTooLong) {
 		out = append(out, " failed to open preview: "+err.Error())
 		return out
 	}
-	defer func() { _ = f.Close() }()
-
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for sc.Scan() && len(out) < maxPreviewLines {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" || !jsontext.Value([]byte(line)).IsValid() {
-			continue
-		}
-		role, text := previewLine(line)
-		if strings.TrimSpace(text) == "" {
-			continue
-		}
-		if isPreviewNoise(text) {
-			continue
-		}
+	for _, item := range items {
+		role, text := item.Role, item.Text
 		prefix := "?"
 		switch role {
 		case "user":
@@ -109,11 +93,15 @@ func buildPreviewLines(path string, width, lines int, theme tuiTheme) []string {
 			out = append(out, row)
 		}
 	}
-	if err := sc.Err(); err != nil {
+	if err != nil {
+		msg := " preview unavailable: failed to read session entries"
+		if errors.Is(err, usecase.ErrPreviewEntryTooLong) {
+			msg = " preview unavailable: a session entry exceeds the safe preview limit"
+		}
 		out = append(out, lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color(previewColorHex(theme, "tag_danger"))).
-			Render(" preview unavailable: a session entry exceeds the safe preview limit"))
+			Render(msg))
 	}
 	if len(out) == 0 {
 		out = append(out, " no dialogue preview available")
@@ -127,40 +115,6 @@ func previewColorHex(theme tuiTheme, key string) string {
 		return fallback
 	}
 	return theme.hex(key, fallback)
-}
-
-func previewLine(line string) (role string, text string) {
-	var item struct {
-		Type    string `json:"type"`
-		Payload struct {
-			Type    string `json:"type"`
-			Role    string `json:"role"`
-			Text    string `json:"text"`
-			Content []struct {
-				Text string `json:"text"`
-			} `json:"content"`
-		} `json:"payload"`
-	}
-	if err := json.Unmarshal([]byte(line), &item); err != nil {
-		return "", ""
-	}
-	if item.Type != "response_item" || item.Payload.Type != "message" {
-		return "", ""
-	}
-	for _, c := range item.Payload.Content {
-		if v := compactPreviewText(c.Text); v != "" {
-			return item.Payload.Role, v
-		}
-	}
-	return item.Payload.Role, compactPreviewText(item.Payload.Text)
-}
-
-func compactPreviewText(v string) string {
-	v = strings.TrimSpace(v)
-	if v == "" {
-		return ""
-	}
-	return strings.Join(strings.Fields(v), " ")
 }
 
 func highlightAngleTags(v string, theme tuiTheme) string {
@@ -233,27 +187,4 @@ func classifyAngleTag(tag string) angleTagTone {
 	}
 
 	return angleTagToneDefault
-}
-
-func isPreviewNoise(v string) bool {
-	l := strings.ToLower(strings.TrimSpace(v))
-	if l == "" {
-		return true
-	}
-	noise := []string{
-		"agents.md",
-		"instructions for",
-		"filesystem sandboxing",
-		"approved command prefix",
-		"global agent rules",
-		"tooling priorities",
-		"validation before finish",
-		"use-modern-go",
-	}
-	for _, k := range noise {
-		if strings.Contains(l, k) {
-			return true
-		}
-	}
-	return false
 }
