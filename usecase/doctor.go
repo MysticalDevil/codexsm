@@ -3,7 +3,7 @@ package usecase
 import (
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/MysticalDevil/codexsm/internal/core"
@@ -66,20 +66,18 @@ func DoctorRisk(in DoctorRiskInput) (DoctorRiskReport, error) {
 		limit = 10
 	}
 
-	items, err := repo.ScanSessions(in.SessionsRoot)
+	q, err := core.QuerySessions(repo, in.SessionsRoot, core.QuerySpec{})
 	if err != nil {
 		return DoctorRiskReport{}, err
 	}
-	type riskyItem struct {
-		Session session.Session
-		Risk    session.Risk
-	}
+	items := q.Items
 	var checker session.IntegrityChecker
 	if in.IntegrityCheck {
 		checker = session.SHA256SidecarChecker
 	}
 
-	risky := make([]riskyItem, 0, len(items))
+	risky := make([]session.Session, 0, len(items))
+	riskByKey := make(map[string]session.Risk, len(items))
 	highCount := 0
 	mediumCount := 0
 	for _, s := range items {
@@ -87,7 +85,8 @@ func DoctorRisk(in DoctorRiskInput) (DoctorRiskReport, error) {
 		if r.Level == session.RiskNone {
 			continue
 		}
-		risky = append(risky, riskyItem{Session: s, Risk: r})
+		risky = append(risky, s)
+		riskByKey[riskySessionKey(s)] = r
 		switch r.Level {
 		case session.RiskHigh:
 			highCount++
@@ -95,19 +94,7 @@ func DoctorRisk(in DoctorRiskInput) (DoctorRiskReport, error) {
 			mediumCount++
 		}
 	}
-
-	sort.SliceStable(risky, func(i, j int) bool {
-		ri := risky[i].Risk.Level
-		rj := risky[j].Risk.Level
-		if ri != rj {
-			return riskRank(ri) > riskRank(rj)
-		}
-		c := risky[j].Session.UpdatedAt.Compare(risky[i].Session.UpdatedAt)
-		if c != 0 {
-			return c < 0
-		}
-		return risky[i].Session.SessionID < risky[j].Session.SessionID
-	})
+	core.SortSessionsByRisk(risky, evaluator, checker)
 
 	rate := 0.0
 	if len(items) > 0 {
@@ -127,13 +114,14 @@ func DoctorRisk(in DoctorRiskInput) (DoctorRiskReport, error) {
 		if i >= limit {
 			break
 		}
+		risk := riskByKey[riskySessionKey(item)]
 		report.Samples = append(report.Samples, DoctorRiskSample{
-			Level:     item.Risk.Level,
-			Reason:    item.Risk.Reason,
-			Health:    item.Session.Health,
-			SessionID: item.Session.SessionID,
-			Path:      item.Session.Path,
-			Detail:    item.Risk.Detail,
+			Level:     risk.Level,
+			Reason:    risk.Reason,
+			Health:    item.Health,
+			SessionID: item.SessionID,
+			Path:      item.Path,
+			Detail:    risk.Detail,
 		})
 	}
 	return report, nil
@@ -161,10 +149,11 @@ func CheckSessionHostPaths(in DoctorHostPathInput) DoctorCheck {
 	if repo == nil {
 		repo = core.ScannerRepository{}
 	}
-	items, err := repo.ScanSessions(in.SessionsRoot)
+	q, err := core.QuerySessions(repo, in.SessionsRoot, core.QuerySpec{})
 	if err != nil {
 		return DoctorCheck{Name: "session_host_paths", Level: DoctorFail, Detail: err.Error()}
 	}
+	items := q.Items
 	if len(items) == 0 {
 		return DoctorCheck{Name: "session_host_paths", Level: DoctorPass, Detail: "no sessions found"}
 	}
@@ -197,7 +186,7 @@ func CheckSessionHostPaths(in DoctorHostPathInput) DoctorCheck {
 	for host := range missingCountByHost {
 		hosts = append(hosts, host)
 	}
-	sort.Strings(hosts)
+	slices.Sort(hosts)
 	displayHosts := hosts
 	if len(displayHosts) > 3 {
 		displayHosts = displayHosts[:3]
@@ -205,7 +194,8 @@ func CheckSessionHostPaths(in DoctorHostPathInput) DoctorCheck {
 
 	compact := in.CompactPath
 	if compact == nil {
-		compact = func(v string, _ int) string { return v }
+		home, _ := os.UserHomeDir()
+		compact = func(v string, _ int) string { return core.CompactHomePath(v, home) }
 	}
 	hostLines := make([]string, 0, len(displayHosts))
 	for _, host := range displayHosts {
@@ -228,13 +218,6 @@ func CheckSessionHostPaths(in DoctorHostPathInput) DoctorCheck {
 	}
 }
 
-func riskRank(level session.RiskLevel) int {
-	switch level {
-	case session.RiskHigh:
-		return 2
-	case session.RiskMedium:
-		return 1
-	default:
-		return 0
-	}
+func riskySessionKey(s session.Session) string {
+	return s.SessionID + "\x00" + s.Path
 }

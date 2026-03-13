@@ -1,8 +1,6 @@
 package usecase
 
 import (
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/MysticalDevil/codexsm/internal/core"
@@ -34,7 +32,7 @@ func LoadTUISessions(in LoadTUISessionsInput) (LoadTUISessionsResult, error) {
 		return LoadTUISessionsResult{}, err
 	}
 	items := append([]session.Session(nil), q.Items...)
-	SortTUISessionsByRisk(items, in.Evaluator)
+	core.SortSessionsByRisk(items, in.Evaluator, nil)
 
 	if in.ScanLimit > 0 && len(items) > in.ScanLimit {
 		items = items[:in.ScanLimit]
@@ -46,37 +44,4 @@ func LoadTUISessions(in LoadTUISessionsInput) (LoadTUISessionsResult, error) {
 		Total: len(q.Items),
 		Items: items,
 	}, nil
-}
-
-// SortTUISessionsByRisk applies TUI priority ordering:
-// risk desc, updated_at desc, session_id asc.
-func SortTUISessionsByRisk(items []session.Session, evaluator core.RiskEvaluator) {
-	if len(items) <= 1 {
-		return
-	}
-	if evaluator == nil {
-		evaluator = core.SessionRiskEvaluator{}
-	}
-	slices.SortStableFunc(items, func(a, b session.Session) int {
-		ra := evaluator.Evaluate(a, nil)
-		rb := evaluator.Evaluate(b, nil)
-		if c := riskLevelRank(rb.Level) - riskLevelRank(ra.Level); c != 0 {
-			return c
-		}
-		if c := b.UpdatedAt.Compare(a.UpdatedAt); c != 0 {
-			return c
-		}
-		return strings.Compare(a.SessionID, b.SessionID)
-	})
-}
-
-func riskLevelRank(level session.RiskLevel) int {
-	switch level {
-	case session.RiskHigh:
-		return 2
-	case session.RiskMedium:
-		return 1
-	default:
-		return 0
-	}
 }
