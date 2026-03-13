@@ -101,6 +101,62 @@ func TestEffectiveMaxBatch(t *testing.T) {
 	}
 }
 
+func TestEffectiveMaxBatchWithDefaults(t *testing.T) {
+	if got := EffectiveMaxBatchWithDefaults(false, 999, false, 100, 1000); got != 100 {
+		t.Fatalf("expected real default, got %d", got)
+	}
+	if got := EffectiveMaxBatchWithDefaults(false, 999, true, 100, 1000); got != 1000 {
+		t.Fatalf("expected dry-run default, got %d", got)
+	}
+	if got := EffectiveMaxBatchWithDefaults(true, 321, true, 100, 1000); got != 321 {
+		t.Fatalf("expected explicit max-batch, got %d", got)
+	}
+}
+
+func TestRunDeleteAndRestoreActionApplyBatchDefaults(t *testing.T) {
+	sel := session.Selector{ID: "a-1"}
+	delOut, delErr := RunDeleteAction(DeleteActionInput{
+		Candidates:      []session.Session{{SessionID: "a-1", Path: "/tmp/a-1.jsonl"}},
+		Selector:        sel,
+		DryRun:          true,
+		Confirm:         true,
+		Yes:             true,
+		SessionsRoot:    "/tmp/sessions",
+		TrashRoot:       "/tmp/trash",
+		MaxBatch:        1,
+		MaxBatchChanged: false,
+		RealDefault:     100,
+		DryRunDefault:   1000,
+	})
+	if delErr != nil {
+		t.Fatalf("RunDeleteAction(dry-run): %v", delErr)
+	}
+	if delOut.AppliedMaxBatch != 1000 {
+		t.Fatalf("unexpected delete applied max batch: %d", delOut.AppliedMaxBatch)
+	}
+
+	restoreOut, restoreErr := RunRestoreAction(RestoreActionInput{
+		Candidates:         []session.Session{{SessionID: "a-1", Path: "/tmp/trash/sessions/a-1.jsonl"}},
+		Selector:           sel,
+		DryRun:             true,
+		Confirm:            true,
+		Yes:                true,
+		SessionsRoot:       "/tmp/sessions",
+		TrashSessionsRoot:  "/tmp/trash/sessions",
+		MaxBatch:           1,
+		MaxBatchChanged:    false,
+		RealDefault:        100,
+		DryRunDefault:      1000,
+		AllowEmptySelector: false,
+	})
+	if restoreErr != nil {
+		t.Fatalf("RunRestoreAction(dry-run): %v", restoreErr)
+	}
+	if restoreOut.AppliedMaxBatch != 1000 {
+		t.Fatalf("unexpected restore applied max batch: %d", restoreOut.AppliedMaxBatch)
+	}
+}
+
 func writeSessionFixture(t *testing.T, sessionsRoot, id, host string) {
 	t.Helper()
 	dir := filepath.Join(sessionsRoot, "2026", "03", "08")
