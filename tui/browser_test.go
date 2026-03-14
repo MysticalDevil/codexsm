@@ -70,7 +70,7 @@ func TestTUIViewMinSizeWarning(t *testing.T) {
 	m := tuiModel{width: 80, height: 20}
 
 	out := m.View()
-	if !strings.Contains(out, "Required at least: 81x24") {
+	if !strings.Contains(out, "Required at least: 65x24") {
 		t.Fatalf("expected min-size warning, got: %q", out)
 	}
 
@@ -128,6 +128,67 @@ func TestTUIViewCompactModeAtMinimumWidth(t *testing.T) {
 
 	if strings.Contains(joined, "▾ ") || strings.Contains(joined, "▸ ") {
 		t.Fatalf("compact tree should not show group arrow symbols, got: %q", joined)
+	}
+}
+
+func TestTUIViewUltraModeAtNarrowWidth(t *testing.T) {
+	m := tuiModel{
+		width:   79,
+		height:  30,
+		focus:   focusTree,
+		groupBy: "host",
+		sessions: []session.Session{
+			{SessionID: "a", UpdatedAt: time.Now(), HostDir: "/tmp/a", Health: session.HealthOK},
+			{SessionID: "b", UpdatedAt: time.Now().Add(-time.Minute), HostDir: "/tmp/b", Health: session.HealthMissingMeta},
+		},
+		previewCache: make(map[string][]string),
+	}
+	m.rebuildTree()
+
+	out := stripANSIForTest(m.View())
+	if strings.Contains(out, "Terminal too small") {
+		t.Fatalf("did not expect min-size warning at ultra width, got: %q", out)
+	}
+
+	if !strings.Contains(out, "SESSIONS (By Host)") {
+		t.Fatalf("expected full tree title in ultra tree pane, got: %q", out)
+	}
+
+	maxWidth := Compute(m.width, m.height).TotalW
+	for _, line := range strings.Split(out, "\n") {
+		if got := runewidth.StringWidth(line); got > maxWidth {
+			t.Fatalf("ultra view line exceeds width=%d, got=%d line=%q", maxWidth, got, line)
+		}
+	}
+}
+
+func TestTUIUltraTabSwitchesPaneAndBlocksActions(t *testing.T) {
+	m := tuiModel{
+		width:   79,
+		height:  30,
+		focus:   focusTree,
+		groupBy: "host",
+		sessions: []session.Session{
+			{SessionID: "a", UpdatedAt: time.Now(), HostDir: "/tmp/a", Health: session.HealthOK},
+		},
+		previewCache: make(map[string][]string),
+	}
+	m.rebuildTree()
+
+	if m.ultraPane != ultraPaneTree {
+		t.Fatalf("expected ultra pane tree by default, got %v", m.ultraPane)
+	}
+
+	m.handleKey("tab")
+
+	if m.ultraPane != ultraPanePreview || m.focus != focusPreview {
+		t.Fatalf("expected ultra pane preview after tab, pane=%v focus=%v", m.ultraPane, m.focus)
+	}
+
+	m.handleKey("d")
+
+	if !strings.Contains(m.status, "Actions disabled in ultra mode") {
+		t.Fatalf("expected action-blocked status in ultra mode, got: %q", m.status)
 	}
 }
 

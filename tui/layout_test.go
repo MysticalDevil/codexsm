@@ -29,7 +29,7 @@ func TestRenderWidth(t *testing.T) {
 }
 
 func TestIsTooSmall(t *testing.T) {
-	if IsTooSmall(80, 30) != true {
+	if IsTooSmall(64, 30) != true {
 		t.Fatal("width below minimum should be too small")
 	}
 
@@ -37,7 +37,7 @@ func TestIsTooSmall(t *testing.T) {
 		t.Fatal("height below minimum should be too small")
 	}
 
-	if IsTooSmall(81, 30) != false {
+	if IsTooSmall(65, 30) != false {
 		t.Fatal("expected enough terminal size")
 	}
 	// Unknown runtime size should not trigger warning path.
@@ -47,12 +47,26 @@ func TestIsTooSmall(t *testing.T) {
 }
 
 func TestIsCompactWidth(t *testing.T) {
-	if IsCompactWidth(118) != true {
-		t.Fatal("expected compact mode at width 118")
+	if IsCompactWidth(97) != false {
+		t.Fatal("expected medium mode at width 97")
+	}
+
+	if IsCompactWidth(81) != true {
+		t.Fatal("expected compact mode at width 81")
 	}
 
 	if IsCompactWidth(119) != false {
 		t.Fatal("expected normal mode at width 119")
+	}
+}
+
+func TestIsUltraWidth(t *testing.T) {
+	if IsUltraWidth(81) != false {
+		t.Fatal("expected compact mode at width 81, not ultra")
+	}
+
+	if IsUltraWidth(80) != true {
+		t.Fatal("expected ultra mode at width 80")
 	}
 }
 
@@ -113,5 +127,20 @@ func TestComputeCompactLayout(t *testing.T) {
 
 	if m.InfoOuterH+m.PreviewOuterH != m.MainAreaH {
 		t.Fatalf("compact right pane vertical mismatch: %+v", m)
+	}
+}
+
+func TestComputeUltraLayout(t *testing.T) {
+	m := Compute(79, 28)
+	if !m.Compact || m.Tier != layoutTierUltra {
+		t.Fatalf("expected ultra metrics, got %+v", m)
+	}
+
+	if m.LeftOuterW+m.GapW+m.RightOuterW > m.TotalW {
+		t.Fatalf("ultra horizontal overflow: %+v", m)
+	}
+
+	if m.RightOuterW < 20 || m.LeftOuterW < 20 {
+		t.Fatalf("ultra min widths not enforced: %+v", m)
 	}
 }

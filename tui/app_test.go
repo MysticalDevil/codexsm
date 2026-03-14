@@ -150,6 +150,55 @@ func TestEnsurePreviewRequestAndUpdatePipeline(t *testing.T) {
 	}
 }
 
+func TestEnsurePreviewRequestUltraModeUsesRenderedPreviewDims(t *testing.T) {
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
+	p := filepath.Join(workspace, "sessions", "2026", "03", "02", "rollout-preview.jsonl")
+	m := tuiModel{
+		sessions: []session.Session{
+			{
+				SessionID: "x1",
+				Path:      p,
+				SizeBytes: 1,
+				UpdatedAt: time.Now(),
+				Health:    session.HealthOK,
+			},
+		},
+		previewCache: make(map[string][]string),
+		width:        79,
+		height:       30,
+		focus:        focusPreview,
+		ultraPane:    ultraPanePreview,
+		theme:        tuiTheme{Name: "tokyonight", Colors: cloneColorMap(builtinThemes["tokyonight"])},
+	}
+	m.rebuildTree()
+
+	width, _ := m.currentPreviewRequestDims()
+
+	cmd := m.ensurePreviewRequest()
+	if cmd == nil {
+		t.Fatal("expected preview load cmd in ultra mode")
+	}
+
+	msg := cmd()
+
+	loaded, ok := msg.(preview.LoadedMsg)
+	if !ok {
+		t.Fatalf("unexpected msg type: %T", msg)
+	}
+
+	if want := preview.CacheKeyForSession(p, width, 1, m.sessions[0].UpdatedAt.UnixNano()); loaded.Key != want {
+		t.Fatalf("unexpected preview key in ultra mode: got=%q want=%q", loaded.Key, want)
+	}
+
+	model, _ := m.Update(loaded)
+	updated := model.(tuiModel)
+
+	out := stripANSIForTest(updated.View())
+	if strings.Contains(out, "preview not ready") {
+		t.Fatalf("unexpected preview miss in ultra mode view: %q", out)
+	}
+}
+
 func TestBuildPreviewLinesExtremeStaticFixtures(t *testing.T) {
 	workspace := testsupport.PrepareFixtureSandbox(t, "extreme-static")
 	sessionsRoot := filepath.Join(workspace, "sessions", "2026", "03", "09")
