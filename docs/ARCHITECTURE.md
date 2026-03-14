@@ -185,17 +185,26 @@ Theme resolution order:
 Recommended semantic keys:
 
 - base: `bg`, `fg`, `border`, `border_focus`
-- titles: `title_tree`, `title_preview`, `group`
+- titles: `title_tree`, `title_preview`, `group`, `accent_group`
 - selection: `selected_fg`, `selected_bg`, `cursor_active`, `cursor_inactive`
 - keybar: `keys_label`, `keys_key`, `keys_sep`, `keys_text`
-- info/status: `info_header`, `info_value`, `status`
+- info/status: `info_header`, `info_value`, `status`, `status_info`
 - preview roles: `prefix_user`, `prefix_assistant`, `prefix_other`, `prefix_default`
 - tag highlighting: `tag_default`, `tag_system`, `tag_lifecycle`, `tag_danger`, `tag_success`
+- semantic state roles: `status_ok`, `status_warn`, `status_risk`
+
+Semantic usage in TUI:
+
+- tree/group accent uses `accent_group` (not warning colors)
+- warning text and warning markers use `status_warn`
+- risk/error text and critical markers use `status_risk`
+- neutral risk/readout uses `status_info`
 
 Rendering note:
 
 - main panes inherit the terminal's default background instead of painting the theme `bg`
 - theme `bg` is reserved for local contrast needs such as foreground-on-accent combinations
+- grouped tree supports runtime fold state: `z` toggles the selected session's group, `Z` expands all groups
 
 ## Third-Party Packages
 

@@ -136,6 +136,8 @@ TUI note:
 - main panes follow the terminal's default background
 - theme colors still control borders, titles, selection, keybar, and preview roles
 - `bg` remains available for local emphasis, such as highlighted action prompts
+- semantic state tokens are available for status UI: `status_ok`, `status_warn`, `status_risk`, `status_info`, `accent_group`
+- group tree supports folding with `z` (toggle selected session group) and `Z` (expand all groups)
 
 ## Build And Dev
 
