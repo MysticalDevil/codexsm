@@ -104,7 +104,7 @@ func (m tuiModel) View() string {
 		infoLines = append(
 			infoLines,
 			lipgloss.NewStyle().
-				Foreground(lipgloss.Color(m.colorHex("tag_danger"))).
+				Foreground(lipgloss.Color(m.colorHex("status_warn"))).
 				Render("No session selected"),
 		)
 	}
@@ -122,7 +122,7 @@ func (m tuiModel) View() string {
 		Width(leftW).
 		Height(max(2, metrics.MainAreaH-leftBase.GetVerticalFrameSize())).
 		BorderForeground(lipgloss.Color(leftBorder)).
-		Render(strings.Join(m.renderTreeLines(leftW, statusColor), "\n"))
+		Render(m.renderTreePaneContent(leftW, max(2, metrics.MainAreaH-leftBase.GetVerticalFrameSize()), statusColor))
 
 	previewInnerH := max(2, metrics.PreviewOuterH-rightBase.GetVerticalFrameSize())
 	previewPane := rightBase.
@@ -199,7 +199,7 @@ func (m tuiModel) buildPanelLines(rightW int, statusColor string) ([]string, []s
 			Foreground(lipgloss.Color(statusColor)).
 			Render(" "+truncateDisplay(m.status, max(8, rightW-2))),
 	)
-	highRisk, mediumRisk := riskCounts(m.sessions)
+	highRisk, mediumRisk := m.riskCounts()
 	riskLine := fmt.Sprintf(
 		" risk=%d (high=%d medium=%d) ",
 		highRisk+mediumRisk,
@@ -207,11 +207,11 @@ func (m tuiModel) buildPanelLines(rightW int, statusColor string) ([]string, []s
 		mediumRisk,
 	)
 
-	riskColor := m.colorHex("tag_success")
+	riskColor := m.colorHex("status_info")
 	if highRisk > 0 {
-		riskColor = m.colorHex("tag_error")
+		riskColor = m.colorHex("status_risk")
 	} else if mediumRisk > 0 {
-		riskColor = m.colorHex("tag_danger")
+		riskColor = m.colorHex("status_warn")
 	}
 
 	previewLines = append(
@@ -242,13 +242,50 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 	leftLines := make([]string, 0, m.visibleRows()+1)
 	leftLines = append(leftLines, leftTitle)
 
-	start, end := m.visibleRange()
+	start := m.offset
+	if start < 0 {
+		start = 0
+	}
+
+	end := start + m.visibleRows()
+	if end > len(m.tree) {
+		end = len(m.tree)
+	}
+
 	for i := start; i < end; i++ {
 		item := m.tree[i]
 		if item.Kind == treeItemMonth {
 			line := truncateDisplay(item.Label, leftW-4)
-			line = lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("group"))).Render(line)
-			leftLines = append(leftLines, "  "+line)
+
+			if i == m.cursor {
+				if m.focus == focusTree {
+					line = lipgloss.NewStyle().
+						Foreground(lipgloss.Color(m.colorHex("selected_fg"))).
+						Background(lipgloss.Color(m.colorHex("selected_bg"))).
+						Bold(true).
+						Render(line)
+					leftLines = append(
+						leftLines,
+						lipgloss.NewStyle().
+							Foreground(lipgloss.Color(m.colorHex("cursor_active"))).
+							Render("▌")+" "+line,
+					)
+				} else {
+					line = lipgloss.NewStyle().
+						Bold(true).
+						Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).
+						Render(line)
+					leftLines = append(
+						leftLines,
+						lipgloss.NewStyle().
+							Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).
+							Render("▏")+" "+line,
+					)
+				}
+			} else {
+				line = lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("accent_group"))).Render(line)
+				leftLines = append(leftLines, "  "+line)
+			}
 
 			continue
 		}
@@ -319,6 +356,100 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 	}
 
 	return leftLines
+}
+
+func (m tuiModel) renderTreePaneContent(leftW, leftInnerH int, statusColor string) string {
+	lines := m.renderTreeLines(leftW, statusColor)
+
+	footer := m.treeFooterLine(leftW, statusColor)
+	if leftInnerH <= 1 {
+		return footer
+	}
+
+	if len(lines) > leftInnerH-1 {
+		lines = lines[:leftInnerH-1]
+	}
+
+	for len(lines) < leftInnerH-1 {
+		lines = append(lines, "")
+	}
+
+	lines = append(lines, footer)
+
+	return strings.Join(lines, "\n")
+}
+
+func (m tuiModel) treeFooterLine(leftW int, statusColor string) string {
+	pos, total := m.selectedSessionPosition()
+	high, medium := m.riskCounts()
+	warn := high + medium
+
+	posPart := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(statusColor)).
+		Render(fmt.Sprintf("%d/%d", pos, total))
+
+	warnColor := m.colorHex("status_info")
+	if high > 0 {
+		warnColor = m.colorHex("status_risk")
+	} else if warn > 0 {
+		warnColor = m.colorHex("status_warn")
+	}
+
+	warnPart := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(warnColor)).
+		Render(fmt.Sprintf("WARN: %d", warn))
+
+	riskColor := m.colorHex("status_info")
+	if high > 0 {
+		riskColor = m.colorHex("status_risk")
+	}
+
+	riskPart := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(riskColor)).
+		Render(fmt.Sprintf("RISK: %d", high))
+
+	content := posPart + " | " + warnPart + " " + riskPart
+
+	return lipgloss.NewStyle().
+		Width(max(8, leftW)).
+		AlignHorizontal(lipgloss.Center).
+		Render(content)
+}
+
+func (m tuiModel) selectedSessionPosition() (int, int) {
+	if len(m.tree) == 0 {
+		return 0, 0
+	}
+
+	total := 0
+	position := 0
+
+	for i, item := range m.tree {
+		if item.Kind != treeItemSession {
+			continue
+		}
+
+		total++
+		if i == m.cursor {
+			position = total
+		}
+	}
+
+	if total == 0 {
+		return 0, 0
+	}
+
+	if m.cursor < 0 || m.cursor >= len(m.tree) {
+		return 0, total
+	}
+
+	if position == 0 {
+		return 0, total
+	}
+
+	return position, total
 }
 
 func (m *tuiModel) appendSelectedSessionPreview(

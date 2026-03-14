@@ -75,7 +75,6 @@ func (m *tuiModel) handleKey(key string) bool {
 				m.cursor++
 			}
 
-			m.skipToSelectable(1)
 			m.syncPreviewSelection()
 			m.clampOffset()
 		} else {
@@ -87,7 +86,6 @@ func (m *tuiModel) handleKey(key string) bool {
 				m.cursor--
 			}
 
-			m.skipToSelectable(-1)
 			m.syncPreviewSelection()
 			m.clampOffset()
 		} else {
@@ -99,7 +97,6 @@ func (m *tuiModel) handleKey(key string) bool {
 	case "g":
 		if m.focus == focusTree {
 			m.cursor = 0
-			m.skipToSelectable(1)
 			m.syncPreviewSelection()
 			m.clampOffset()
 		} else {
@@ -111,11 +108,37 @@ func (m *tuiModel) handleKey(key string) bool {
 				m.cursor = len(m.tree) - 1
 			}
 
-			m.skipToSelectable(-1)
 			m.syncPreviewSelection()
 			m.clampOffset()
 		} else {
 			m.previewOffset = 1 << 30
+		}
+	case "z":
+		if m.focus == focusTree {
+			group, ok := m.currentCursorGroup()
+			if !ok {
+				m.status = "No group selected."
+				return false
+			}
+
+			if !m.toggleSelectedGroupCollapsed() {
+				m.status = "No group selected."
+				return false
+			}
+
+			m.rebuildTree()
+
+			if idx, found := m.findGroupIndex(group); found {
+				m.cursor = idx
+				m.syncPreviewSelection()
+			}
+
+			m.clampOffset()
+		}
+	case "Z":
+		if m.focus == focusTree && m.expandAllGroups() {
+			m.rebuildTree()
+			m.clampOffset()
 		}
 	case "ctrl+d":
 		if m.focus == focusPreview {

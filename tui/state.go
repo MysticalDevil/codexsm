@@ -25,22 +25,6 @@ func (m *tuiModel) visibleRows() int {
 	return rows
 }
 
-func (m *tuiModel) visibleRange() (int, int) {
-	rows := m.visibleRows()
-
-	start := m.offset
-	if start < 0 {
-		start = 0
-	}
-
-	end := start + rows
-	if end > len(m.tree) {
-		end = len(m.tree)
-	}
-
-	return start, end
-}
-
 func (m *tuiModel) clampOffset() {
 	if m.cursor < m.offset {
 		m.offset = m.cursor
@@ -66,6 +50,23 @@ func (m *tuiModel) clampOffset() {
 }
 
 func (m *tuiModel) rebuildTree() {
+	hasPrev := false
+	prevCursor := m.cursor
+	prevKind := treeItemSession
+	prevGroup := ""
+	prevSessionID := ""
+
+	if len(m.tree) > 0 && m.cursor >= 0 && m.cursor < len(m.tree) {
+		hasPrev = true
+		prev := m.tree[m.cursor]
+		prevKind = prev.Kind
+		prevGroup = prev.Month
+
+		if prev.Kind == treeItemSession && prev.Index >= 0 && prev.Index < len(m.sessions) {
+			prevSessionID = m.sessions[prev.Index].SessionID
+		}
+	}
+
 	m.tree = make([]treeItem, 0, len(m.sessions)+16)
 
 	mode := strings.ToLower(strings.TrimSpace(m.groupBy))
@@ -86,12 +87,22 @@ func (m *tuiModel) rebuildTree() {
 	}
 
 	for _, group := range groupOrder {
+		prefix := "▾ "
+		if m.isGroupCollapsed(group) {
+			prefix = "▸ "
+		}
+
 		m.tree = append(m.tree, treeItem{
 			Kind:   treeItemMonth,
-			Label:  "▾ " + group,
+			Label:  prefix + group,
 			Month:  group,
 			Indent: 0,
 		})
+
+		if m.isGroupCollapsed(group) {
+			continue
+		}
+
 		for _, i := range grouped[group] {
 			m.tree = append(m.tree, treeItem{
 				Kind:        treeItemSession,
@@ -104,9 +115,130 @@ func (m *tuiModel) rebuildTree() {
 		}
 	}
 
+	if len(m.tree) == 0 {
+		m.cursor = 0
+		m.syncPreviewSelection()
+
+		return
+	}
+
+	if hasPrev && prevKind == treeItemMonth && strings.TrimSpace(prevGroup) != "" {
+		if idx, ok := m.findGroupIndex(prevGroup); ok {
+			m.cursor = idx
+			m.syncPreviewSelection()
+
+			return
+		}
+	}
+
+	if hasPrev && strings.TrimSpace(prevSessionID) != "" {
+		if idx, ok := m.findSessionIndexByID(prevSessionID); ok {
+			m.cursor = idx
+			m.syncPreviewSelection()
+
+			return
+		}
+	}
+
+	if hasPrev && prevCursor >= 0 && prevCursor < len(m.tree) {
+		m.cursor = prevCursor
+		m.syncPreviewSelection()
+
+		return
+	}
+
 	m.cursor = 0
 	m.skipToSelectable(1)
 	m.syncPreviewSelection()
+}
+
+func (m *tuiModel) isGroupCollapsed(group string) bool {
+	if len(m.collapsedGroups) == 0 {
+		return false
+	}
+
+	return m.collapsedGroups[group]
+}
+
+func (m *tuiModel) toggleSelectedGroupCollapsed() bool {
+	if len(m.tree) == 0 || m.cursor < 0 || m.cursor >= len(m.tree) {
+		return false
+	}
+
+	item := m.tree[m.cursor]
+
+	group := item.Month
+	if item.Kind != treeItemMonth && item.Kind != treeItemSession {
+		return false
+	}
+
+	if strings.TrimSpace(group) == "" {
+		return false
+	}
+
+	if m.collapsedGroups == nil {
+		m.collapsedGroups = make(map[string]bool)
+	}
+
+	if m.collapsedGroups[group] {
+		delete(m.collapsedGroups, group)
+	} else {
+		m.collapsedGroups[group] = true
+	}
+
+	return true
+}
+
+func (m *tuiModel) currentCursorGroup() (string, bool) {
+	if len(m.tree) == 0 || m.cursor < 0 || m.cursor >= len(m.tree) {
+		return "", false
+	}
+
+	item := m.tree[m.cursor]
+	if item.Kind != treeItemMonth && item.Kind != treeItemSession {
+		return "", false
+	}
+
+	group := strings.TrimSpace(item.Month)
+	if group == "" {
+		return "", false
+	}
+
+	return group, true
+}
+
+func (m *tuiModel) findGroupIndex(group string) (int, bool) {
+	for i, item := range m.tree {
+		if item.Kind == treeItemMonth && item.Month == group {
+			return i, true
+		}
+	}
+
+	return 0, false
+}
+
+func (m *tuiModel) findSessionIndexByID(sessionID string) (int, bool) {
+	for i, item := range m.tree {
+		if item.Kind != treeItemSession || item.Index < 0 || item.Index >= len(m.sessions) {
+			continue
+		}
+
+		if m.sessions[item.Index].SessionID == sessionID {
+			return i, true
+		}
+	}
+
+	return 0, false
+}
+
+func (m *tuiModel) expandAllGroups() bool {
+	if len(m.collapsedGroups) == 0 {
+		return false
+	}
+
+	clear(m.collapsedGroups)
+
+	return true
 }
 
 func (m *tuiModel) groupKeyForSession(s session.Session, mode string) string {
@@ -297,45 +429,45 @@ func (m *tuiModel) detailRows(selected session.Session, rightW int) (header stri
 func (m *tuiModel) healthColorHex(h session.Health) string {
 	switch h {
 	case session.HealthOK:
-		return m.colorHex("tag_success")
+		return m.colorHex("status_ok")
 	case session.HealthCorrupted:
-		return m.colorHex("tag_error")
+		return m.colorHex("status_risk")
 	case session.HealthMissingMeta:
-		return m.colorHex("tag_danger")
+		return m.colorHex("status_warn")
 	default:
-		return m.colorHex("info_value")
+		return m.colorHex("status_info")
 	}
 }
 
 func (m *tuiModel) healthSymbolAndColor(h session.Health) (string, string) {
 	switch h {
 	case session.HealthOK:
-		return "•", m.colorHex("tag_success")
+		return "•", m.colorHex("status_ok")
 	case session.HealthMissingMeta:
-		return "!", m.colorHex("tag_danger")
+		return "!", m.colorHex("status_warn")
 	case session.HealthCorrupted:
-		return "✖", m.colorHex("tag_error")
+		return "✖", m.colorHex("status_risk")
 	default:
-		return "•", m.colorHex("info_value")
+		return "•", m.colorHex("status_info")
 	}
 }
 
 func (m *tuiModel) treeHealthVisual(h session.Health, hostMissing bool) (string, string, bool) {
 	risk := session.EvaluateRisk(session.Session{Health: h}, nil)
 	if risk.Level == session.RiskHigh {
-		return "⚠", m.colorHex("tag_error"), true
+		return "⚠", m.colorHex("status_risk"), true
 	}
 
 	if risk.Level == session.RiskMedium {
-		return "!", m.colorHex("tag_danger"), true
+		return "!", m.colorHex("status_warn"), true
 	}
 
 	if h == session.HealthCorrupted {
-		return "✖", m.colorHex("tag_error"), true
+		return "✖", m.colorHex("status_risk"), true
 	}
 
 	if hostMissing || h == session.HealthMissingMeta {
-		return "!", m.colorHex("tag_danger"), true
+		return "!", m.colorHex("status_warn"), true
 	}
 
 	sym, color := m.healthSymbolAndColor(h)
@@ -343,15 +475,22 @@ func (m *tuiModel) treeHealthVisual(h session.Health, hostMissing bool) (string,
 	return sym, color, false
 }
 
-func riskCounts(items []session.Session) (high, medium int) {
-	for _, s := range items {
+func (m *tuiModel) riskCounts() (high, medium int) {
+	for _, item := range m.tree {
+		if item.Kind != treeItemSession || item.Index < 0 || item.Index >= len(m.sessions) {
+			continue
+		}
+
+		s := m.sessions[item.Index]
 		switch session.EvaluateRisk(s, nil).Level {
 		case session.RiskHigh:
 			high++
 		case session.RiskMedium:
 			medium++
 		case session.RiskNone:
-			// no-op
+			if item.HostMissing {
+				medium++
+			}
 		}
 	}
 

@@ -426,6 +426,54 @@ func TestRebuildTreeHostGroupingDoesNotDuplicateHeaders(t *testing.T) {
 	}
 }
 
+func TestRebuildTreeRespectsCollapsedGroups(t *testing.T) {
+	m := tuiModel{
+		groupBy: "host",
+		home:    "",
+		sessions: []session.Session{
+			{SessionID: "s1", UpdatedAt: time.Date(2026, 3, 5, 11, 0, 0, 0, time.Local), HostDir: "/host/a"},
+			{SessionID: "s2", UpdatedAt: time.Date(2026, 3, 5, 10, 0, 0, 0, time.Local), HostDir: "/host/b"},
+			{SessionID: "s3", UpdatedAt: time.Date(2026, 3, 5, 9, 0, 0, 0, time.Local), HostDir: "/host/a"},
+		},
+		collapsedGroups: map[string]bool{"/host/a": true},
+	}
+	m.rebuildTree()
+
+	groupCount := 0
+	sessionCount := 0
+	hasCollapsedHeader := false
+
+	for _, item := range m.tree {
+		if item.Kind == treeItemMonth {
+			groupCount++
+
+			if item.Month == "/host/a" && strings.HasPrefix(item.Label, "▸ ") {
+				hasCollapsedHeader = true
+			}
+		}
+
+		if item.Kind == treeItemSession {
+			sessionCount++
+
+			if item.Month == "/host/a" {
+				t.Fatalf("collapsed group should not render sessions: %+v", item)
+			}
+		}
+	}
+
+	if groupCount != 2 {
+		t.Fatalf("expected 2 group headers, got %d", groupCount)
+	}
+
+	if sessionCount != 1 {
+		t.Fatalf("expected only expanded-group sessions, got %d", sessionCount)
+	}
+
+	if !hasCollapsedHeader {
+		t.Fatal("expected collapsed group header marker")
+	}
+}
+
 func TestPreviewHostPath(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -475,6 +523,10 @@ func TestRenderKeysLine(t *testing.T) {
 	if !strings.Contains(stripANSIForTest(long), "[KEYS]") {
 		t.Fatalf("expected KEYS header in long line, got: %q", long)
 	}
+
+	if !strings.Contains(stripANSIForTest(long), "z/Z fold") {
+		t.Fatalf("expected fold key hint in long line, got: %q", long)
+	}
 }
 
 func TestRenderKeysLineUsesAdaptiveVariants(t *testing.T) {
@@ -519,6 +571,130 @@ func TestGroupKeyForSession(t *testing.T) {
 	}
 }
 
+func TestTUIHandleKeyToggleGroupCollapse(t *testing.T) {
+	m := tuiModel{
+		sessions: []session.Session{
+			{SessionID: "a1", UpdatedAt: time.Now(), HostDir: "/tmp/a"},
+			{SessionID: "a2", UpdatedAt: time.Now().Add(-time.Minute), HostDir: "/tmp/a"},
+			{SessionID: "b1", UpdatedAt: time.Now().Add(-2 * time.Minute), HostDir: "/tmp/b"},
+		},
+		collapsedGroups: make(map[string]bool),
+		previewCache:    make(map[string][]string),
+		focus:           focusTree,
+		groupBy:         "host",
+	}
+	m.rebuildTree()
+
+	beforeVisible := 0
+
+	for _, item := range m.tree {
+		if item.Kind == treeItemSession {
+			beforeVisible++
+		}
+	}
+
+	m.handleKey("z")
+
+	if !m.collapsedGroups["/tmp/a"] {
+		t.Fatalf("expected /tmp/a to be collapsed, got %#v", m.collapsedGroups)
+	}
+
+	afterVisible := 0
+
+	for _, item := range m.tree {
+		if item.Kind == treeItemSession {
+			afterVisible++
+		}
+	}
+
+	if afterVisible >= beforeVisible {
+		t.Fatalf("expected fewer visible sessions after collapse: before=%d after=%d", beforeVisible, afterVisible)
+	}
+
+	m.handleKey("Z")
+
+	if len(m.collapsedGroups) != 0 {
+		t.Fatalf("expected all groups expanded, got %#v", m.collapsedGroups)
+	}
+
+	expandedVisible := 0
+
+	for _, item := range m.tree {
+		if item.Kind == treeItemSession {
+			expandedVisible++
+		}
+	}
+
+	if expandedVisible != beforeVisible {
+		t.Fatalf("expected visible session count restored: before=%d expanded=%d", beforeVisible, expandedVisible)
+	}
+}
+
+func TestTUIHandleKeyCanFocusGroupRows(t *testing.T) {
+	m := tuiModel{
+		sessions: []session.Session{
+			{SessionID: "a1", UpdatedAt: time.Now(), HostDir: "/tmp/a"},
+			{SessionID: "a2", UpdatedAt: time.Now().Add(-time.Minute), HostDir: "/tmp/a"},
+		},
+		previewCache: make(map[string][]string),
+		focus:        focusTree,
+		groupBy:      "host",
+	}
+	m.rebuildTree()
+
+	if m.cursor <= 0 {
+		t.Fatalf("expected initial cursor at session row, got %d", m.cursor)
+	}
+
+	m.handleKey("k")
+
+	if m.cursor != 0 {
+		t.Fatalf("expected cursor to move to group row, got %d", m.cursor)
+	}
+
+	if m.tree[m.cursor].Kind != treeItemMonth {
+		t.Fatalf("expected group row kind at cursor, got %+v", m.tree[m.cursor])
+	}
+
+	m.handleKey("j")
+
+	if m.tree[m.cursor].Kind != treeItemSession {
+		t.Fatalf("expected cursor to move back to session row, got %+v", m.tree[m.cursor])
+	}
+}
+
+func TestTUIHandleKeyToggleGroupCollapseOnGroupRow(t *testing.T) {
+	m := tuiModel{
+		sessions: []session.Session{
+			{SessionID: "a1", UpdatedAt: time.Now(), HostDir: "/tmp/a"},
+			{SessionID: "a2", UpdatedAt: time.Now().Add(-time.Minute), HostDir: "/tmp/a"},
+			{SessionID: "b1", UpdatedAt: time.Now().Add(-2 * time.Minute), HostDir: "/tmp/b"},
+		},
+		collapsedGroups: make(map[string]bool),
+		previewCache:    make(map[string][]string),
+		focus:           focusTree,
+		groupBy:         "host",
+	}
+	m.rebuildTree()
+
+	m.handleKey("k")
+
+	if m.cursor != 0 || m.tree[m.cursor].Kind != treeItemMonth {
+		t.Fatalf("expected cursor on first group row, got cursor=%d item=%+v", m.cursor, m.tree[m.cursor])
+	}
+
+	group := m.tree[m.cursor].Month
+	m.handleKey("z")
+
+	if !m.collapsedGroups[group] {
+		t.Fatalf("expected group %q to be collapsed, got %#v", group, m.collapsedGroups)
+	}
+
+	if m.cursor != 0 || m.tree[m.cursor].Kind != treeItemMonth || m.tree[m.cursor].Month != group {
+		t.Fatalf("expected cursor to stay on collapsed group row, got cursor=%d item=%+v", m.cursor, m.tree[m.cursor])
+	}
+}
+
 func TestDetailRowsColorsHealthValue(t *testing.T) {
 	m := tuiModel{width: 120, home: "/home/omega"}
 	okSession := session.Session{
@@ -541,11 +717,11 @@ func TestDetailRowsColorsHealthValue(t *testing.T) {
 		t.Fatalf("expected health text in rows, got ok=%q bad=%q", okRow, badRow)
 	}
 
-	if got := m.healthColorHex(session.HealthOK); got != m.colorHex("tag_success") {
+	if got := m.healthColorHex(session.HealthOK); got != m.colorHex("status_ok") {
 		t.Fatalf("healthColorHex(ok) mismatch: %q", got)
 	}
 
-	if got := m.healthColorHex(session.HealthCorrupted); got != m.colorHex("tag_error") {
+	if got := m.healthColorHex(session.HealthCorrupted); got != m.colorHex("status_risk") {
 		t.Fatalf("healthColorHex(corrupted) mismatch: %q", got)
 	}
 }
@@ -1114,20 +1290,91 @@ func TestRenderTreeLinesMarksHealthAndColorizedNames(t *testing.T) {
 		t.Fatalf("expected error marker in tree lines: %q", joined)
 	}
 
-	if sym, color := m.healthSymbolAndColor(session.HealthMissingMeta); sym != "!" || color != m.colorHex("tag_danger") {
+	if sym, color := m.healthSymbolAndColor(session.HealthMissingMeta); sym != "!" || color != m.colorHex("status_warn") {
 		t.Fatalf("unexpected missing-meta visual: sym=%q color=%q", sym, color)
 	}
 
-	if sym, color := m.healthSymbolAndColor(session.HealthCorrupted); sym != "✖" || color != m.colorHex("tag_error") {
+	if sym, color := m.healthSymbolAndColor(session.HealthCorrupted); sym != "✖" || color != m.colorHex("status_risk") {
 		t.Fatalf("unexpected corrupted visual: sym=%q color=%q", sym, color)
 	}
 
-	if sym, color, nonHealthy := m.treeHealthVisual(session.HealthOK, true); sym != "!" || color != m.colorHex("tag_danger") || !nonHealthy {
+	if sym, color, nonHealthy := m.treeHealthVisual(session.HealthOK, true); sym != "!" || color != m.colorHex("status_warn") || !nonHealthy {
 		t.Fatalf("unexpected host-missing visual: sym=%q color=%q nonHealthy=%v", sym, color, nonHealthy)
 	}
 
-	if sym, color, nonHealthy := m.treeHealthVisual(session.HealthCorrupted, false); sym != "⚠" || color != m.colorHex("tag_error") || !nonHealthy {
+	if sym, color, nonHealthy := m.treeHealthVisual(session.HealthCorrupted, false); sym != "⚠" || color != m.colorHex("status_risk") || !nonHealthy {
 		t.Fatalf("unexpected corrupted risk visual: sym=%q color=%q nonHealthy=%v", sym, color, nonHealthy)
+	}
+}
+
+func TestRenderTreeLinesShowsPositionFooter(t *testing.T) {
+	tmp := t.TempDir()
+	hostA := filepath.Join(tmp, "a")
+	hostB := filepath.Join(tmp, "b")
+
+	if err := os.MkdirAll(hostA, 0o755); err != nil {
+		t.Fatalf("mkdir hostA: %v", err)
+	}
+
+	if err := os.MkdirAll(hostB, 0o755); err != nil {
+		t.Fatalf("mkdir hostB: %v", err)
+	}
+
+	m := tuiModel{
+		groupBy: "host",
+		sessions: []session.Session{
+			{SessionID: "s1", UpdatedAt: time.Now(), HostDir: hostA, Health: session.HealthOK},
+			{SessionID: "s2", UpdatedAt: time.Now().Add(-time.Minute), HostDir: hostA, Health: session.HealthMissingMeta},
+			{SessionID: "s3", UpdatedAt: time.Now().Add(-2 * time.Minute), HostDir: hostB, Health: session.HealthCorrupted},
+		},
+		previewCache: map[string][]string{},
+	}
+	m.rebuildTree()
+
+	content := m.renderTreePaneContent(60, 8, "#999999")
+
+	lines := strings.Split(content, "\n")
+	if len(lines) != 8 {
+		t.Fatalf("expected fixed pane height lines=8, got %d", len(lines))
+	}
+
+	last := stripANSIForTest(lines[len(lines)-1])
+	if !strings.Contains(last, "1/3") || !strings.Contains(last, "WARN: 2") || !strings.Contains(last, "RISK: 1") {
+		t.Fatalf("expected footer in bottom line, got: %q", last)
+	}
+
+	m.cursor++
+	m.skipToSelectable(1)
+
+	content = m.renderTreePaneContent(60, 8, "#999999")
+	lines = strings.Split(content, "\n")
+
+	last = stripANSIForTest(lines[len(lines)-1])
+	if !strings.Contains(last, "2/3") || !strings.Contains(last, "WARN: 2") || !strings.Contains(last, "RISK: 1") {
+		t.Fatalf("expected updated footer after cursor move, got: %q", last)
+	}
+}
+
+func TestRenderTreeLinesFooterCountsHostMissingAsWarn(t *testing.T) {
+	tmp := t.TempDir()
+	missingHost := filepath.Join(tmp, "missing-host")
+
+	m := tuiModel{
+		groupBy: "host",
+		sessions: []session.Session{
+			{SessionID: "s1", UpdatedAt: time.Now(), HostDir: missingHost, Health: session.HealthOK},
+			{SessionID: "s2", UpdatedAt: time.Now().Add(-time.Minute), HostDir: tmp, Health: session.HealthOK},
+		},
+		previewCache: map[string][]string{},
+	}
+	m.rebuildTree()
+
+	content := m.renderTreePaneContent(60, 8, "#999999")
+	lines := strings.Split(content, "\n")
+
+	last := stripANSIForTest(lines[len(lines)-1])
+	if !strings.Contains(last, "1/2") || !strings.Contains(last, "WARN: 1") || !strings.Contains(last, "RISK: 0") {
+		t.Fatalf("expected host-missing to be counted as warning, got: %q", last)
 	}
 }
 

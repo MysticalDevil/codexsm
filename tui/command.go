@@ -42,6 +42,7 @@ const (
 type tuiModel struct {
 	sessions           []session.Session
 	tree               []treeItem
+	collapsedGroups    map[string]bool
 	cursor             int
 	offset             int
 	previewOffset      int
@@ -122,6 +123,8 @@ func NewCommand(deps CommandDeps) *cobra.Command {
 			"Keys:\n" +
 			"  j/k or Down/Up: move cursor\n" +
 			"  g/G: first/last\n" +
+			"  z: collapse/expand selected session group\n" +
+			"  Z: expand all groups\n" +
 			"  Ctrl+d / Ctrl+u: scroll preview\n" +
 			"  d: delete current session (respects --dry-run/--confirm)\n" +
 			"  m: migrate sessions with missing selected host to trash\n" +
@@ -237,6 +240,7 @@ func NewCommand(deps CommandDeps) *cobra.Command {
 
 			m := tuiModel{
 				sessions:           items,
+				collapsedGroups:    make(map[string]bool),
 				home:               home,
 				sessionsRoot:       sessionsRoot,
 				status:             "Ready. Press q to quit.",
