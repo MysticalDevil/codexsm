@@ -350,6 +350,8 @@ func riskCounts(items []session.Session) (high, medium int) {
 			high++
 		case session.RiskMedium:
 			medium++
+		case session.RiskNone:
+			// no-op
 		}
 	}
 

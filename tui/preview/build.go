@@ -165,7 +165,7 @@ func highlightAngleTags(v string, palette ThemePalette) string {
 			b.WriteString(styleLifecycle.Render(tag))
 		case AngleTagToneSuccess:
 			b.WriteString(styleSuccess.Render(tag))
-		default:
+		case AngleTagToneDefault:
 			b.WriteString(styleDefault.Render(tag))
 		}
 
