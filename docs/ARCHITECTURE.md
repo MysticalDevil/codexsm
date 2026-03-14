@@ -12,7 +12,7 @@ Known hot spots:
 
 ## Architecture Design
 
-`codexsm` follows a layered approach. The current dependency view is:
+`codexsm` follows a layered approach. As of `v0.3.3`, the runtime dependency view is:
 
 ```text
 External/runtime:
@@ -75,13 +75,10 @@ External/runtime:
 +-------------+               +----------+----------+
                                           |
                                           v
-                                 +------------------+
-                                 | util/file.go     |
-                                 +------------------+
-
-All layers may use:
-- Go std + encoding/json/v2
-- internal/ops/* (preview mode / interactive confirm helpers)
+                           +------------------------+
+                           | util/* + internal/*    |
+                           | file/core/ops helpers  |
+                           +------------------------+
 ```
 
 1. Entry and command wiring:
@@ -89,7 +86,7 @@ All layers may use:
 - `cli/root.go`
 
 2. Command layer:
-- root command files under `cli/*.go` (`group`, `agents`, `completion`, `version`, `session`, shared pager/ansi/logging/runtime ports).
+- root command files under `cli/*.go` (`group`, `agents`, `completion`, `version`, `session`, plus shared pager/ansi/logging/runtime helpers).
 - subpackage command implementations:
   - `cli/config/command.go`
   - `cli/delete/command.go`
@@ -115,6 +112,7 @@ All layers may use:
 - `usecase/*` for command-level orchestration shared by CLI/TUI
 - `audit/*` for action logs
 - `config/*` for path and app config resolution
+- `internal/core/*` for shared query/display/sort helpers
 - `internal/ops/*` for shared operation helpers (`preview mode`, interactive confirms)
 - `util/file.go` for move/copy file helpers
 
@@ -135,6 +133,7 @@ Boundary intent:
 - `tui/*` should own interaction state, key handling, and rendering.
 - `tui/preview/*` should stay preview-specific and avoid reverse dependencies to CLI.
 - `session/*`, `audit/*`, and `config/*` should remain reusable by both CLI and TUI.
+- avoid pass-through wrappers: call real package types/functions directly across boundaries.
 
 Shared session-processing boundaries:
 

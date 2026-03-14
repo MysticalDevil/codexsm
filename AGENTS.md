@@ -20,3 +20,9 @@
 - Do not bypass lints with `nolint` or wrapper patterns that only silence checks (for example, `defer func() { _ = f.Close() }()` used only to satisfy linters).
 - Prefer real fixes: explicitly handle returned errors and keep control flow clear and maintainable.
 - Test-code exception: in `*_test.go`, unchecked `Close()` return values are allowed via lint configuration; do not add `nolint` just for that.
+
+## Architecture Doc Rules
+
+- For `docs/ARCHITECTURE.md`, keep the existing boxed ASCII diagram style; do not replace it with a different diagram style (for example, flow-list style).
+- Update architecture diagrams incrementally based on real code structure only; do not rewrite the whole diagram unless explicitly requested.
+- Architecture notes and diagrams must reflect actual package boundaries/dependencies in the repo, not planned/imagined future structure.
