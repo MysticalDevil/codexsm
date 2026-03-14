@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MysticalDevil/codexsm/internal/restoreexec"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/session"
 )
@@ -154,6 +155,77 @@ func TestRunDeleteAndRestoreActionApplyBatchDefaults(t *testing.T) {
 	}
 	if restoreOut.AppliedMaxBatch != 1000 {
 		t.Fatalf("unexpected restore applied max batch: %d", restoreOut.AppliedMaxBatch)
+	}
+}
+
+type stubDeleteExecutor struct {
+	summary session.DeleteSummary
+	err     error
+	opts    session.DeleteOptions
+}
+
+func (s *stubDeleteExecutor) Execute(_ []session.Session, _ session.Selector, opts session.DeleteOptions) (session.DeleteSummary, error) {
+	s.opts = opts
+	return s.summary, s.err
+}
+
+type stubRestoreExecutor struct {
+	summary restoreexec.Summary
+	err     error
+	opts    restoreexec.Options
+}
+
+func (s *stubRestoreExecutor) Execute(_ []session.Session, _ session.Selector, opts restoreexec.Options) (restoreexec.Summary, error) {
+	s.opts = opts
+	return s.summary, s.err
+}
+
+func TestRunDeleteAndRestoreActionUseInjectedExecutors(t *testing.T) {
+	delExec := &stubDeleteExecutor{
+		summary: session.DeleteSummary{Action: "dry-run", Simulation: true},
+	}
+	delOut, err := RunDeleteAction(DeleteActionInput{
+		Candidates:      []session.Session{{SessionID: "x", Path: "/tmp/x.jsonl"}},
+		Selector:        session.Selector{ID: "x"},
+		DryRun:          true,
+		Confirm:         true,
+		Yes:             true,
+		MaxBatch:        77,
+		MaxBatchChanged: true,
+		Executor:        delExec,
+	})
+	if err != nil {
+		t.Fatalf("RunDeleteAction(injected): %v", err)
+	}
+	if delOut.Summary.Action != "dry-run" {
+		t.Fatalf("unexpected delete summary: %+v", delOut.Summary)
+	}
+	if delExec.opts.MaxBatch != 77 {
+		t.Fatalf("expected injected delete opts max-batch=77, got %d", delExec.opts.MaxBatch)
+	}
+
+	restoreExec := &stubRestoreExecutor{
+		summary: restoreexec.Summary{Action: "restore-dry-run", Simulation: true},
+	}
+	restoreOut, err := RunRestoreAction(RestoreActionInput{
+		Candidates:         []session.Session{{SessionID: "x", Path: "/tmp/trash/sessions/x.jsonl"}},
+		Selector:           session.Selector{ID: "x"},
+		DryRun:             true,
+		Confirm:            true,
+		Yes:                true,
+		MaxBatch:           66,
+		MaxBatchChanged:    true,
+		AllowEmptySelector: true,
+		Executor:           restoreExec,
+	})
+	if err != nil {
+		t.Fatalf("RunRestoreAction(injected): %v", err)
+	}
+	if restoreOut.Summary.Action != "restore-dry-run" {
+		t.Fatalf("unexpected restore summary: %+v", restoreOut.Summary)
+	}
+	if restoreExec.opts.MaxBatch != 66 {
+		t.Fatalf("expected injected restore opts max-batch=66, got %d", restoreExec.opts.MaxBatch)
 	}
 }
 

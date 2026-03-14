@@ -1,7 +1,6 @@
 package usecase
 
 import (
-	"github.com/MysticalDevil/codexsm/internal/deleteexec"
 	"github.com/MysticalDevil/codexsm/internal/restoreexec"
 	"github.com/MysticalDevil/codexsm/session"
 )
@@ -24,11 +23,25 @@ type DeleteActionInput struct {
 	MaxBatchChanged bool
 	RealDefault     int
 	DryRunDefault   int
+	Executor        DeleteExecutor
 }
 
 type DeleteActionResult struct {
 	Summary         session.DeleteSummary
 	AppliedMaxBatch int
+}
+
+// DeleteExecutor executes delete workflow over selected sessions.
+type DeleteExecutor interface {
+	Execute(candidates []session.Session, sel session.Selector, opts session.DeleteOptions) (session.DeleteSummary, error)
+}
+
+// SessionDeleteExecutor is the default delete executor.
+type SessionDeleteExecutor struct{}
+
+// Execute runs the session delete operation.
+func (SessionDeleteExecutor) Execute(candidates []session.Session, sel session.Selector, opts session.DeleteOptions) (session.DeleteSummary, error) {
+	return session.DeleteSessions(candidates, sel, opts)
 }
 
 func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
@@ -39,7 +52,11 @@ func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
 		in.RealDefault,
 		in.DryRunDefault,
 	)
-	sum, err := deleteexec.Execute(in.Candidates, in.Selector, deleteexec.Options{
+	executor := in.Executor
+	if executor == nil {
+		executor = SessionDeleteExecutor{}
+	}
+	sum, err := executor.Execute(in.Candidates, in.Selector, session.DeleteOptions{
 		DryRun:       in.DryRun,
 		Confirm:      in.Confirm,
 		Yes:          in.Yes,
@@ -64,11 +81,28 @@ type RestoreActionInput struct {
 	RealDefault        int
 	DryRunDefault      int
 	AllowEmptySelector bool
+	Executor           RestoreExecutor
 }
 
+// RestoreSummary is restore execution summary.
+type RestoreSummary = restoreexec.Summary
+
 type RestoreActionResult struct {
-	Summary         restoreexec.Summary
+	Summary         RestoreSummary
 	AppliedMaxBatch int
+}
+
+// RestoreExecutor executes restore workflow over selected sessions.
+type RestoreExecutor interface {
+	Execute(candidates []session.Session, sel session.Selector, opts restoreexec.Options) (restoreexec.Summary, error)
+}
+
+// SessionRestoreExecutor is the default restore executor.
+type SessionRestoreExecutor struct{}
+
+// Execute runs the restore operation.
+func (SessionRestoreExecutor) Execute(candidates []session.Session, sel session.Selector, opts restoreexec.Options) (restoreexec.Summary, error) {
+	return restoreexec.Execute(candidates, sel, opts)
 }
 
 func RunRestoreAction(in RestoreActionInput) (RestoreActionResult, error) {
@@ -79,7 +113,11 @@ func RunRestoreAction(in RestoreActionInput) (RestoreActionResult, error) {
 		in.RealDefault,
 		in.DryRunDefault,
 	)
-	sum, err := restoreexec.Execute(in.Candidates, in.Selector, restoreexec.Options{
+	executor := in.Executor
+	if executor == nil {
+		executor = SessionRestoreExecutor{}
+	}
+	sum, err := executor.Execute(in.Candidates, in.Selector, restoreexec.Options{
 		DryRun:             in.DryRun,
 		Confirm:            in.Confirm,
 		Yes:                in.Yes,
