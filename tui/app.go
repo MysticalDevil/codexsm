@@ -11,6 +11,130 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+func (m tuiModel) Init() tea.Cmd {
+	return nil
+}
+
+func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.clampOffset()
+		return m, m.ensurePreviewRequest()
+	case preview.LoadedMsg:
+		out := preview.HandleLoaded(m.previewReqID, m.previewWait, msg, m.previewIndex, m.indexCap)
+		if !out.Accepted {
+			return m, nil
+		}
+		m.previewWait = out.NextWait
+		m.previewCachePut(out.CacheKey, out.CacheLines)
+		return m, out.PersistCmd
+	case preview.IndexPersistedMsg:
+		return m, nil
+	case tea.KeyMsg:
+		if m.handleKey(msg.String()) {
+			return m, tea.Quit
+		}
+		return m, m.ensurePreviewRequest()
+	}
+	return m, nil
+}
+
+func (m *tuiModel) handleKey(key string) bool {
+	switch key {
+	case "q", "ctrl+c":
+		return true
+	case "tab", "ctrl+i":
+		if m.focus == focusTree {
+			m.focus = focusPreview
+		} else {
+			m.focus = focusTree
+		}
+	case "shift+tab", "backtab":
+		if m.focus == focusPreview {
+			m.focus = focusTree
+		} else {
+			m.focus = focusPreview
+		}
+	case "right", "l":
+		m.focus = focusPreview
+	case "left", "h":
+		m.focus = focusTree
+	case "t", "1":
+		m.focus = focusTree
+	case "p", "2":
+		m.focus = focusPreview
+	case "j", "down":
+		if m.focus == focusTree {
+			if m.cursor < len(m.tree)-1 {
+				m.cursor++
+			}
+			m.skipToSelectable(1)
+			m.syncPreviewSelection()
+			m.clampOffset()
+		} else {
+			m.previewOffset++
+		}
+	case "k", "up":
+		if m.focus == focusTree {
+			if m.cursor > 0 {
+				m.cursor--
+			}
+			m.skipToSelectable(-1)
+			m.syncPreviewSelection()
+			m.clampOffset()
+		} else {
+			m.previewOffset--
+			if m.previewOffset < 0 {
+				m.previewOffset = 0
+			}
+		}
+	case "g":
+		if m.focus == focusTree {
+			m.cursor = 0
+			m.skipToSelectable(1)
+			m.syncPreviewSelection()
+			m.clampOffset()
+		} else {
+			m.previewOffset = 0
+		}
+	case "G":
+		if m.focus == focusTree {
+			if len(m.tree) > 0 {
+				m.cursor = len(m.tree) - 1
+			}
+			m.skipToSelectable(-1)
+			m.syncPreviewSelection()
+			m.clampOffset()
+		} else {
+			m.previewOffset = 1 << 30
+		}
+	case "ctrl+d":
+		if m.focus == focusPreview {
+			m.previewOffset += m.previewPageStep()
+		}
+	case "ctrl+u":
+		if m.focus == focusPreview {
+			m.previewOffset -= m.previewPageStep()
+			if m.previewOffset < 0 {
+				m.previewOffset = 0
+			}
+		}
+	case "d":
+		m.requestDelete()
+	case "m":
+		m.requestHostMigrate()
+	case "r":
+		m.requestRestore()
+	case "y":
+		m.commitPendingAction()
+	case "n", "esc":
+		m.cancelPendingAction()
+	}
+	return false
+}
+
 type previewLoadRequest struct {
 	RequestID     uint64
 	Key           string
