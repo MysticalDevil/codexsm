@@ -1,4 +1,4 @@
-package cli
+package config
 
 import (
 	"os"
@@ -6,14 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	cfg "github.com/MysticalDevil/codexsm/cli/config"
 	cliutil "github.com/MysticalDevil/codexsm/cli/util"
-	"github.com/MysticalDevil/codexsm/config"
+	appconfig "github.com/MysticalDevil/codexsm/config"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 )
 
 func TestDefaultAppConfigTemplate(t *testing.T) {
-	template := cfg.DefaultAppConfigTemplate()
+	template := DefaultAppConfigTemplate()
 	if template.SessionsRoot == "" || template.TrashRoot == "" || template.LogFile == "" {
 		t.Fatalf("expected default paths, got %+v", template)
 	}
@@ -24,43 +23,43 @@ func TestDefaultAppConfigTemplate(t *testing.T) {
 }
 
 func TestValidateAppConfig(t *testing.T) {
-	valid := cfg.DefaultAppConfigTemplate()
-	if err := cfg.ValidateAppConfig(valid); err != nil {
+	valid := DefaultAppConfigTemplate()
+	if err := ValidateAppConfig(valid); err != nil {
 		t.Fatalf("validateAppConfig valid: %v", err)
 	}
 
 	validDay := valid
 
 	validDay.TUI.GroupBy = "day"
-	if err := cfg.ValidateAppConfig(validDay); err != nil {
+	if err := ValidateAppConfig(validDay); err != nil {
 		t.Fatalf("validateAppConfig valid day group: %v", err)
 	}
 
 	badGroup := valid
 
 	badGroup.TUI.GroupBy = "weekly"
-	if err := cfg.ValidateAppConfig(badGroup); err == nil || !strings.Contains(err.Error(), "tui.group_by") {
+	if err := ValidateAppConfig(badGroup); err == nil || !strings.Contains(err.Error(), "tui.group_by") {
 		t.Fatalf("expected group_by validation error, got: %v", err)
 	}
 
 	badSource := valid
 
 	badSource.TUI.Source = "archive"
-	if err := cfg.ValidateAppConfig(badSource); err == nil || !strings.Contains(err.Error(), "tui.source") {
+	if err := ValidateAppConfig(badSource); err == nil || !strings.Contains(err.Error(), "tui.source") {
 		t.Fatalf("expected source validation error, got: %v", err)
 	}
 
 	badTheme := valid
 
 	badTheme.TUI.Theme = "not-a-theme"
-	if err := cfg.ValidateAppConfig(badTheme); err == nil || !strings.Contains(err.Error(), "tui.theme") {
+	if err := ValidateAppConfig(badTheme); err == nil || !strings.Contains(err.Error(), "tui.theme") {
 		t.Fatalf("expected theme validation error, got: %v", err)
 	}
 
 	badColor := valid
 
 	badColor.TUI.Colors = map[string]string{"": "#ffffff"}
-	if err := cfg.ValidateAppConfig(badColor); err == nil || !strings.Contains(err.Error(), "tui.colors") {
+	if err := ValidateAppConfig(badColor); err == nil || !strings.Contains(err.Error(), "tui.colors") {
 		t.Fatalf("expected colors validation error, got: %v", err)
 	}
 }
@@ -105,7 +104,7 @@ func TestConfigValidateCommandReadPathBranches(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	if _, err := config.ResolveConfigPath("~/.codex/sessions"); err != nil {
+	if _, err := appconfig.ResolveConfigPath("~/.codex/sessions"); err != nil {
 		t.Fatalf("ResolveConfigPath sanity: %v", err)
 	}
 }

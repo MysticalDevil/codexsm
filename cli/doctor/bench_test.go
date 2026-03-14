@@ -1,4 +1,4 @@
-package cli
+package doctor_test
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MysticalDevil/codexsm/cli"
 	cliutil "github.com/MysticalDevil/codexsm/cli/util"
 )
 
@@ -20,7 +21,7 @@ func BenchmarkDoctorRiskJSON(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		cmd := NewRootCmd()
+		cmd := cli.NewRootCmd()
 		stdout := &bytes.Buffer{}
 		cmd.SetOut(stdout)
 		cmd.SetErr(&bytes.Buffer{})

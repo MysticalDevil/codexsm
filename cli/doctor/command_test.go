@@ -1,4 +1,4 @@
-package cli
+package doctor_test
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MysticalDevil/codexsm/cli"
 	cliutil "github.com/MysticalDevil/codexsm/cli/util"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/usecase"
@@ -22,7 +23,7 @@ func TestDoctorCommandNonStrict(t *testing.T) {
 	t.Setenv("SESSIONS_ROOT", sessionsRoot)
 	t.Setenv("CSM_CONFIG", filepath.Join(workspace, "missing-config.json"))
 
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
@@ -46,7 +47,7 @@ func TestDoctorCommandStrictFailsOnWarn(t *testing.T) {
 	t.Setenv("SESSIONS_ROOT", sessionsRoot)
 	t.Setenv("CSM_CONFIG", filepath.Join(workspace, "missing-config.json"))
 
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs([]string{"doctor", "--strict"})
@@ -59,7 +60,7 @@ func TestDoctorCommandStrictFailsOnWarn(t *testing.T) {
 func TestDoctorRiskCommandReturnsFailureWhenRiskFound(t *testing.T) {
 	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
 	root := filepath.Join(workspace, "sessions")
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	stdout := &bytes.Buffer{}
 	cmd.SetOut(stdout)
 	cmd.SetErr(&bytes.Buffer{})
@@ -86,7 +87,7 @@ func TestDoctorRiskCommandPassesWhenNoRiskFound(t *testing.T) {
 	writeDoctorSessionFixture(t, sessionsRoot, "ok1", t.TempDir())
 	writeDoctorSessionFixture(t, sessionsRoot, "ok2", t.TempDir())
 
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	stdout := &bytes.Buffer{}
 	cmd.SetOut(stdout)
 	cmd.SetErr(&bytes.Buffer{})
@@ -104,7 +105,7 @@ func TestDoctorRiskCommandPassesWhenNoRiskFound(t *testing.T) {
 func TestDoctorRiskCommandJSONFormat(t *testing.T) {
 	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
 	root := filepath.Join(workspace, "sessions")
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	stdout := &bytes.Buffer{}
 	cmd.SetOut(stdout)
 	cmd.SetErr(&bytes.Buffer{})
@@ -147,7 +148,7 @@ func TestDoctorRiskCommandIntegrityMismatchIsRisk(t *testing.T) {
 		t.Fatalf("write sidecar: %v", err)
 	}
 
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	stdout := &bytes.Buffer{}
 	cmd.SetOut(stdout)
 	cmd.SetErr(&bytes.Buffer{})
@@ -175,7 +176,7 @@ func TestDoctorRiskCommandExtremeStaticJSON(t *testing.T) {
 	workspace := testsupport.PrepareFixtureSandbox(t, "extreme-static")
 	root := filepath.Join(workspace, "sessions")
 
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	stdout := &bytes.Buffer{}
 	cmd.SetOut(stdout)
 	cmd.SetErr(&bytes.Buffer{})

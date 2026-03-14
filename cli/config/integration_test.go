@@ -1,7 +1,7 @@
 //go:build integration
 // +build integration
 
-package cli
+package config_test
 
 import (
 	"bytes"
@@ -11,16 +11,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/MysticalDevil/codexsm/cli"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 )
 
 func TestConfigShowMissingFile(t *testing.T) {
-	workspace := testsupport.PrepareFixtureSandbox(t, fixtureName)
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
 	cfgPath := filepath.Join(workspace, "config", "missing.json")
 	t.Setenv("CSM_CONFIG", cfgPath)
 	t.Setenv("SESSIONS_ROOT", "")
 
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	cmd.SetOut(stdout)
@@ -44,13 +45,13 @@ func TestConfigShowMissingFile(t *testing.T) {
 }
 
 func TestConfigInitShowValidate(t *testing.T) {
-	workspace := testsupport.PrepareFixtureSandbox(t, fixtureName)
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
 	cfgPath := filepath.Join(workspace, "config", "config.json")
 	t.Setenv("CSM_CONFIG", cfgPath)
 	t.Setenv("SESSIONS_ROOT", "")
 
 	// dry-run does not write.
-	dryCmd := NewRootCmd()
+	dryCmd := cli.NewRootCmd()
 	dryOut := &bytes.Buffer{}
 	dryErr := &bytes.Buffer{}
 	dryCmd.SetOut(dryOut)
@@ -67,7 +68,7 @@ func TestConfigInitShowValidate(t *testing.T) {
 	}
 
 	// init writes file.
-	initCmd := NewRootCmd()
+	initCmd := cli.NewRootCmd()
 	initOut := &bytes.Buffer{}
 	initErr := &bytes.Buffer{}
 	initCmd.SetOut(initOut)
@@ -84,7 +85,7 @@ func TestConfigInitShowValidate(t *testing.T) {
 	}
 
 	// show resolved includes effective runtime values.
-	showCmd := NewRootCmd()
+	showCmd := cli.NewRootCmd()
 	showOut := &bytes.Buffer{}
 	showErr := &bytes.Buffer{}
 	showCmd.SetOut(showOut)
@@ -105,7 +106,7 @@ func TestConfigInitShowValidate(t *testing.T) {
 	}
 
 	// validate succeeds for generated config.
-	validateCmd := NewRootCmd()
+	validateCmd := cli.NewRootCmd()
 	validateOut := &bytes.Buffer{}
 	validateErr := &bytes.Buffer{}
 	validateCmd.SetOut(validateOut)
@@ -120,7 +121,7 @@ func TestConfigInitShowValidate(t *testing.T) {
 }
 
 func TestConfigValidateFailsForInvalidJSON(t *testing.T) {
-	workspace := testsupport.PrepareFixtureSandbox(t, fixtureName)
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
 	cfgPath := filepath.Join(workspace, "config", "invalid.json")
 	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
 		t.Fatalf("mkdir config dir: %v", err)
@@ -130,7 +131,7 @@ func TestConfigValidateFailsForInvalidJSON(t *testing.T) {
 	}
 	t.Setenv("CSM_CONFIG", cfgPath)
 
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs([]string{"config", "validate"})

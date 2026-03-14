@@ -1,4 +1,4 @@
-package cli
+package list_test
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/MysticalDevil/codexsm/cli"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/session"
 )
@@ -18,7 +19,7 @@ func TestListOffsetAndLimit(t *testing.T) {
 	run := func(offset int) []session.Session {
 		t.Helper()
 
-		cmd := NewRootCmd()
+		cmd := cli.NewRootCmd()
 		stdout := &bytes.Buffer{}
 		cmd.SetOut(stdout)
 		cmd.SetErr(&bytes.Buffer{})
@@ -57,7 +58,7 @@ func TestListOffsetAndLimit(t *testing.T) {
 func TestListOffsetNegativeReturnsError(t *testing.T) {
 	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
 	root := filepath.Join(workspace, "sessions")
-	cmd := NewRootCmd()
+	cmd := cli.NewRootCmd()
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
 	cmd.SetArgs([]string{"list", "--sessions-root", root, "--offset", "-1"})

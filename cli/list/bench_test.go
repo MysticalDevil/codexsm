@@ -1,4 +1,4 @@
-package cli
+package list
 
 import (
 	"bytes"
@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MysticalDevil/codexsm/cli/list"
 	"github.com/MysticalDevil/codexsm/session"
 )
 
 func BenchmarkRenderTable(b *testing.B) {
 	sessions := makeCLIBenchSessions(1200)
 
-	cols, err := list.ParseColumns("id,updated_at,size,health,host,head", false, "table")
+	cols, err := ParseColumns("id,updated_at,size,health,host,head", false, "table")
 	if err != nil {
 		b.Fatalf("parseListColumns setup: %v", err)
 	}
@@ -25,7 +24,7 @@ func BenchmarkRenderTable(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		out := &bytes.Buffer{}
 
-		table, err := list.RenderTable(sessions, len(sessions), list.RenderOptions{
+		table, err := RenderTable(sessions, len(sessions), RenderOptions{
 			NoHeader:  false,
 			ColorMode: "never",
 			Out:       out,
@@ -45,7 +44,7 @@ func BenchmarkRenderTable(b *testing.B) {
 func BenchmarkRenderTable_LargeColumns(b *testing.B) {
 	sessions := makeCLIBenchSessions(1200)
 
-	cols, err := list.ParseColumns("session_id,created_at,updated_at,size_bytes,health,host_dir,head,path", true, "table")
+	cols, err := ParseColumns("session_id,created_at,updated_at,size_bytes,health,host_dir,head,path", true, "table")
 	if err != nil {
 		b.Fatalf("parseListColumns setup: %v", err)
 	}
@@ -56,7 +55,7 @@ func BenchmarkRenderTable_LargeColumns(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		out := &bytes.Buffer{}
 
-		table, err := list.RenderTable(sessions, len(sessions), list.RenderOptions{
+		table, err := RenderTable(sessions, len(sessions), RenderOptions{
 			NoHeader:  false,
 			ColorMode: "never",
 			Out:       out,
