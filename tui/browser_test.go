@@ -17,7 +17,7 @@ import (
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/session"
 	"github.com/MysticalDevil/codexsm/session/scanner"
-	previewpkg "github.com/MysticalDevil/codexsm/tui/preview"
+	"github.com/MysticalDevil/codexsm/tui/preview"
 	"github.com/MysticalDevil/codexsm/usecase"
 )
 
@@ -257,7 +257,7 @@ func TestPreviewForUsesSessionStyleCacheKey(t *testing.T) {
 	m := tuiModel{previewCache: make(map[string][]string)}
 	_ = m.previewFor(p, 24, 20)
 
-	wantKey := previewpkg.CacheKeyForSession(p, 24, info.Size(), info.ModTime().UnixNano())
+	wantKey := preview.CacheKeyForSession(p, 24, info.Size(), info.ModTime().UnixNano())
 	if _, ok := m.previewCache[wantKey]; !ok {
 		t.Fatalf("expected preview cache key %q not found; keys=%v", wantKey, maps.Keys(m.previewCache))
 	}

@@ -8,19 +8,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/MysticalDevil/codexsm/session"
-	previewpkg "github.com/MysticalDevil/codexsm/tui/preview"
+	"github.com/MysticalDevil/codexsm/tui/preview"
 	"github.com/charmbracelet/lipgloss"
 )
 
-type previewIndexRecord struct {
-	Key           string   `json:"key"`
-	Path          string   `json:"path"`
-	Width         int      `json:"width"`
-	SizeBytes     int64    `json:"size_bytes"`
-	UpdatedAtUnix int64    `json:"updated_at_unix"`
-	TouchedAtUnix int64    `json:"touched_at_unix"`
-	Lines         []string `json:"lines"`
-}
+type previewIndexRecord = preview.IndexRecord
 
 type previewLoadRequest struct {
 	RequestID     uint64
@@ -52,7 +44,7 @@ type previewLRUEntry struct {
 }
 
 func previewCacheKeyForSession(s session.Session, width int) string {
-	return previewpkg.CacheKeyForSession(s.Path, width, s.SizeBytes, s.UpdatedAt.UnixNano())
+	return preview.CacheKeyForSession(s.Path, width, s.SizeBytes, s.UpdatedAt.UnixNano())
 }
 
 func (m *tuiModel) ensurePreviewRequest() tea.Cmd {
@@ -192,7 +184,7 @@ func loadPreviewCmd(req previewLoadRequest) tea.Cmd {
 		}
 
 		if req.IndexPath != "" {
-			if lines, ok, err := loadPreviewIndexEntry(req.IndexPath, req.Key); err == nil && ok {
+			if lines, ok, err := preview.LoadIndexEntry(req.IndexPath, req.Key); err == nil && ok {
 				return previewLoadedMsg{
 					RequestID: req.RequestID,
 					Key:       req.Key,
@@ -233,7 +225,7 @@ func persistPreviewIndexCmd(indexPath string, cap int, record previewIndexRecord
 		if strings.TrimSpace(indexPath) == "" || strings.TrimSpace(record.Key) == "" {
 			return previewIndexPersistedMsg{}
 		}
-		if err := upsertPreviewIndex(indexPath, cap, record); err != nil {
+		if err := preview.UpsertIndex(indexPath, cap, record); err != nil {
 			return previewIndexPersistedMsg{Err: err.Error()}
 		}
 		return previewIndexPersistedMsg{}
@@ -241,5 +233,5 @@ func persistPreviewIndexCmd(indexPath string, cap int, record previewIndexRecord
 }
 
 func previewLinesBytes(lines []string) int64 {
-	return previewpkg.LinesBytes(lines)
+	return preview.LinesBytes(lines)
 }

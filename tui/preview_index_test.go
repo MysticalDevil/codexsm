@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/MysticalDevil/codexsm/tui/preview"
 )
 
 func TestLoadPreviewIndexEntry_RecoversCorruptedLines(t *testing.T) {
@@ -20,7 +22,7 @@ func TestLoadPreviewIndexEntry_RecoversCorruptedLines(t *testing.T) {
 		t.Fatalf("write index fixture: %v", err)
 	}
 
-	lines, ok, err := loadPreviewIndexEntry(p, "k1")
+	lines, ok, err := preview.LoadIndexEntry(p, "k1")
 	if err != nil {
 		t.Fatalf("loadPreviewIndexEntry: %v", err)
 	}
@@ -50,7 +52,7 @@ func TestUpsertPreviewIndex_WaitsForLock(t *testing.T) {
 		_ = os.Remove(lockPath)
 	}()
 
-	rec := previewIndexRecord{
+	rec := preview.IndexRecord{
 		Key:           "k-lock",
 		Path:          "/tmp/k-lock",
 		Width:         16,
@@ -59,10 +61,10 @@ func TestUpsertPreviewIndex_WaitsForLock(t *testing.T) {
 		TouchedAtUnix: time.Now().UnixNano(),
 		Lines:         []string{"hello"},
 	}
-	if err := upsertPreviewIndex(indexPath, 10, rec); err != nil {
+	if err := preview.UpsertIndex(indexPath, 10, rec); err != nil {
 		t.Fatalf("upsertPreviewIndex with delayed lock release: %v", err)
 	}
-	lines, ok, err := loadPreviewIndexEntry(indexPath, rec.Key)
+	lines, ok, err := preview.LoadIndexEntry(indexPath, rec.Key)
 	if err != nil {
 		t.Fatalf("load after upsert: %v", err)
 	}
@@ -75,7 +77,7 @@ func TestReadPreviewIndex_TrimsToByteBudget(t *testing.T) {
 	dir := t.TempDir()
 	indexPath := filepath.Join(dir, "preview.v1.jsonl")
 
-	entries := map[string]previewIndexRecord{
+	entries := map[string]preview.IndexRecord{
 		"old": {
 			Key:           "old",
 			Path:          "/tmp/old",
@@ -83,7 +85,7 @@ func TestReadPreviewIndex_TrimsToByteBudget(t *testing.T) {
 			SizeBytes:     1,
 			UpdatedAtUnix: 1,
 			TouchedAtUnix: 1,
-			Lines:         []string{strings.Repeat("a", maxPreviewIndexBytes)},
+			Lines:         []string{strings.Repeat("a", preview.MaxIndexBytes)},
 		},
 		"new": {
 			Key:           "new",
@@ -95,18 +97,18 @@ func TestReadPreviewIndex_TrimsToByteBudget(t *testing.T) {
 			Lines:         []string{"keep-me"},
 		},
 	}
-	if err := rewritePreviewIndex(indexPath, entries, 10, maxPreviewIndexBytes); err != nil {
-		t.Fatalf("rewritePreviewIndex: %v", err)
+	if err := preview.RewriteIndex(indexPath, entries, 10, preview.MaxIndexBytes); err != nil {
+		t.Fatalf("RewriteIndex: %v", err)
 	}
 
-	lines, ok, err := loadPreviewIndexEntry(indexPath, "new")
+	lines, ok, err := preview.LoadIndexEntry(indexPath, "new")
 	if err != nil {
 		t.Fatalf("loadPreviewIndexEntry(new): %v", err)
 	}
 	if !ok || len(lines) != 1 || lines[0] != "keep-me" {
 		t.Fatalf("unexpected retained entry ok=%v lines=%#v", ok, lines)
 	}
-	if _, ok, err := loadPreviewIndexEntry(indexPath, "old"); err != nil {
+	if _, ok, err := preview.LoadIndexEntry(indexPath, "old"); err != nil {
 		t.Fatalf("loadPreviewIndexEntry(old): %v", err)
 	} else if ok {
 		t.Fatal("expected oversized old entry to be trimmed from index")

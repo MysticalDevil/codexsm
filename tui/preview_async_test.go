@@ -9,6 +9,7 @@ import (
 
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/session"
+	"github.com/MysticalDevil/codexsm/tui/preview"
 )
 
 func TestPreviewCacheKeyForSessionIncludesWidth(t *testing.T) {
@@ -66,7 +67,7 @@ func TestPreviewCacheByteBudget(t *testing.T) {
 func TestPreviewIndexRoundTrip(t *testing.T) {
 	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
 	indexPath := filepath.Join(workspace, "tmp", "preview.v1.jsonl")
-	rec := previewIndexRecord{
+	rec := preview.IndexRecord{
 		Key:           "k-a",
 		Path:          "/tmp/a.jsonl",
 		Width:         32,
@@ -75,10 +76,10 @@ func TestPreviewIndexRoundTrip(t *testing.T) {
 		TouchedAtUnix: 33,
 		Lines:         []string{"l1", "l2"},
 	}
-	if err := upsertPreviewIndex(indexPath, 100, rec); err != nil {
+	if err := preview.UpsertIndex(indexPath, 100, rec); err != nil {
 		t.Fatalf("upsertPreviewIndex: %v", err)
 	}
-	lines, ok, err := loadPreviewIndexEntry(indexPath, rec.Key)
+	lines, ok, err := preview.LoadIndexEntry(indexPath, rec.Key)
 	if err != nil {
 		t.Fatalf("loadPreviewIndexEntry: %v", err)
 	}

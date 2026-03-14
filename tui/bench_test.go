@@ -10,6 +10,7 @@ import (
 
 	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/session"
+	"github.com/MysticalDevil/codexsm/tui/preview"
 )
 
 func makeBenchSessions(n int) []session.Session {
@@ -131,7 +132,7 @@ func BenchmarkPreviewIndexLoad_1k(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		lines, ok, err := loadPreviewIndexEntry(indexPath, key)
+		lines, ok, err := preview.LoadIndexEntry(indexPath, key)
 		if err != nil {
 			b.Fatalf("loadPreviewIndexEntry: %v", err)
 		}
@@ -154,7 +155,7 @@ func BenchmarkPreviewIndexUpsert_1k(b *testing.B) {
 		if err := os.WriteFile(indexPath, seed, 0o644); err != nil {
 			b.Fatalf("reset index file: %v", err)
 		}
-		rec := previewIndexRecord{
+		rec := preview.IndexRecord{
 			Key:           fmt.Sprintf("bench-upsert-%04d", i),
 			Path:          fmt.Sprintf("/tmp/upsert/%04d.jsonl", i),
 			Width:         72,
@@ -164,7 +165,7 @@ func BenchmarkPreviewIndexUpsert_1k(b *testing.B) {
 			Lines:         []string{"updated preview line", "second line"},
 		}
 		b.StartTimer()
-		if err := upsertPreviewIndex(indexPath, 1200, rec); err != nil {
+		if err := preview.UpsertIndex(indexPath, 1200, rec); err != nil {
 			b.Fatalf("upsertPreviewIndex: %v", err)
 		}
 	}
@@ -183,17 +184,17 @@ func BenchmarkPreviewIndexUpsert_Trimmed(b *testing.B) {
 		if err := os.WriteFile(indexPath, seed, 0o644); err != nil {
 			b.Fatalf("reset index file: %v", err)
 		}
-		rec := previewIndexRecord{
+		rec := preview.IndexRecord{
 			Key:           fmt.Sprintf("bench-trim-%04d", i),
 			Path:          fmt.Sprintf("/tmp/trim/%04d.jsonl", i),
 			Width:         72,
 			SizeBytes:     4096,
 			UpdatedAtUnix: baseTouched + int64(i),
 			TouchedAtUnix: baseTouched + int64(i),
-			Lines:         []string{strings.Repeat("trim-me ", maxPreviewIndexBytes/4)},
+			Lines:         []string{strings.Repeat("trim-me ", preview.MaxIndexBytes/4)},
 		}
 		b.StartTimer()
-		if err := upsertPreviewIndex(indexPath, 1200, rec); err != nil {
+		if err := preview.UpsertIndex(indexPath, 1200, rec); err != nil {
 			b.Fatalf("upsertPreviewIndex(trimmed): %v", err)
 		}
 	}
@@ -225,7 +226,7 @@ func writePreviewIndexBenchFile(b *testing.B, count int, includeLargeLines bool)
 	b.Helper()
 	dir := b.TempDir()
 	indexPath := filepath.Join(dir, "preview.v1.jsonl")
-	entries := make(map[string]previewIndexRecord, count)
+	entries := make(map[string]preview.IndexRecord, count)
 	baseTouched := time.Now().UnixNano()
 	for i := 0; i < count; i++ {
 		lines := []string{fmt.Sprintf("preview line %04d", i), "secondary line"}
@@ -233,7 +234,7 @@ func writePreviewIndexBenchFile(b *testing.B, count int, includeLargeLines bool)
 			lines = []string{strings.Repeat("large-line ", 2048)}
 		}
 		key := fmt.Sprintf("bench-%04d", i)
-		entries[key] = previewIndexRecord{
+		entries[key] = preview.IndexRecord{
 			Key:           key,
 			Path:          fmt.Sprintf("/tmp/preview/%04d.jsonl", i),
 			Width:         72,
@@ -243,7 +244,7 @@ func writePreviewIndexBenchFile(b *testing.B, count int, includeLargeLines bool)
 			Lines:         lines,
 		}
 	}
-	if err := rewritePreviewIndex(indexPath, entries, count, maxPreviewIndexBytes); err != nil {
+	if err := preview.RewriteIndex(indexPath, entries, count, preview.MaxIndexBytes); err != nil {
 		b.Fatalf("rewritePreviewIndex setup: %v", err)
 	}
 	return indexPath
