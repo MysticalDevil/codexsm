@@ -15,11 +15,6 @@ type HandleLoadedOutput struct {
 	PersistCmd tea.Cmd
 }
 
-// EnsureRequest builds a load command from a fully populated request.
-func EnsureRequest(req Request) tea.Cmd {
-	return LoadCmd(req)
-}
-
 // HandleLoaded validates stale async messages and returns cache/persist actions.
 func HandleLoaded(currentReqID uint64, waitKey string, msg LoadedMsg, indexPath string, cap int) HandleLoadedOutput {
 	if msg.RequestID != currentReqID || msg.Key != waitKey {

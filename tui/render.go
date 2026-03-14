@@ -96,13 +96,13 @@ func renderKeysSegments(segments []keysSegment, theme tuiTheme) string {
 	for _, segment := range segments {
 		switch segment.kind {
 		case keysLabel:
-			parts = append(parts, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(theme.hex("keys_label", builtinThemes[defaultTUIThemeName()]["keys_label"]))).Render(segment.label))
+			parts = append(parts, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(theme.hex("keys_label", builtinThemes[DefaultThemeName()]["keys_label"]))).Render(segment.label))
 		case keysKey:
-			parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color(theme.hex("keys_key", builtinThemes[defaultTUIThemeName()]["keys_key"]))).Render(segment.label))
+			parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color(theme.hex("keys_key", builtinThemes[DefaultThemeName()]["keys_key"]))).Render(segment.label))
 		case keysText:
-			parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color(theme.hex("keys_text", builtinThemes[defaultTUIThemeName()]["keys_text"]))).Render(segment.label))
+			parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color(theme.hex("keys_text", builtinThemes[DefaultThemeName()]["keys_text"]))).Render(segment.label))
 		case keysSep:
-			parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color(theme.hex("keys_sep", builtinThemes[defaultTUIThemeName()]["keys_sep"]))).Render(segment.label))
+			parts = append(parts, lipgloss.NewStyle().Foreground(lipgloss.Color(theme.hex("keys_sep", builtinThemes[DefaultThemeName()]["keys_sep"]))).Render(segment.label))
 		}
 	}
 
@@ -159,12 +159,12 @@ func (m tuiModel) colorHex(key string) string {
 	theme := m.theme
 	if strings.TrimSpace(theme.Name) == "" || len(theme.Colors) == 0 {
 		theme = tuiTheme{
-			Name:   defaultTUIThemeName(),
-			Colors: cloneColorMap(builtinThemes[defaultTUIThemeName()]),
+			Name:   DefaultThemeName(),
+			Colors: cloneColorMap(builtinThemes[DefaultThemeName()]),
 		}
 	}
 
-	fallback := builtinThemes[defaultTUIThemeName()][key]
+	fallback := builtinThemes[DefaultThemeName()][key]
 
 	return theme.hex(key, fallback)
 }

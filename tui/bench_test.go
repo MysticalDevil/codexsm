@@ -94,7 +94,7 @@ func BenchmarkBuildPreviewLines_LargeSession(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		lines := buildPreviewLines(p, 60, 24, theme)
+		lines := preview.BuildLines(p, 60, 24, previewPalette(theme))
 		if len(lines) == 0 {
 			b.Fatal("expected non-empty lines")
 		}
@@ -109,7 +109,7 @@ func BenchmarkBuildPreviewLines_OversizeUser(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		lines := buildPreviewLines(path, 72, 18, theme)
+		lines := preview.BuildLines(path, 72, 18, previewPalette(theme))
 		if len(lines) == 0 {
 			b.Fatal("expected preview lines")
 		}
@@ -124,7 +124,7 @@ func BenchmarkBuildPreviewLines_OversizeAssistant(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		lines := buildPreviewLines(path, 72, 18, theme)
+		lines := preview.BuildLines(path, 72, 18, previewPalette(theme))
 		if len(lines) == 0 {
 			b.Fatal("expected preview lines")
 		}
@@ -139,7 +139,7 @@ func BenchmarkBuildPreviewLines_UnicodeWide(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		lines := buildPreviewLines(path, 72, 18, theme)
+		lines := preview.BuildLines(path, 72, 18, previewPalette(theme))
 		if len(lines) == 0 {
 			b.Fatal("expected preview lines")
 		}

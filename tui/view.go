@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/MysticalDevil/codexsm/tui/preview"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/MysticalDevil/codexsm/internal/core"
@@ -332,7 +333,7 @@ func (m *tuiModel) appendSelectedSessionPreview(
 	previewContentHeight := max(1, previewInnerH-5)
 	previewTextWidth := max(8, rightW-8)
 
-	key := previewCacheKeyForSession(selected, previewTextWidth)
+	key := preview.CacheKeyForSession(selected.Path, previewTextWidth, selected.SizeBytes, selected.UpdatedAt.UnixNano())
 
 	preview, ok := m.previewCachePeek(key)
 	if !ok {

@@ -18,9 +18,9 @@ func TestPreviewCacheKeyForSessionIncludesWidth(t *testing.T) {
 		SizeBytes: 123,
 		UpdatedAt: time.Unix(1700000000, 12345),
 	}
-	k1 := previewCacheKeyForSession(s, 24)
+	k1 := preview.CacheKeyForSession(s.Path, 24, s.SizeBytes, s.UpdatedAt.UnixNano())
 
-	k2 := previewCacheKeyForSession(s, 48)
+	k2 := preview.CacheKeyForSession(s.Path, 48, s.SizeBytes, s.UpdatedAt.UnixNano())
 	if k1 == k2 {
 		t.Fatalf("expected different keys by width, got same: %q", k1)
 	}
@@ -168,7 +168,7 @@ func TestBuildPreviewLinesExtremeStaticFixtures(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			lines := buildPreviewLines(filepath.Join(sessionsRoot, tc.file), 72, 10, theme)
+			lines := preview.BuildLines(filepath.Join(sessionsRoot, tc.file), 72, 10, previewPalette(theme))
 			if len(lines) == 0 {
 				t.Fatal("expected preview lines")
 			}
@@ -199,7 +199,7 @@ func TestBuildPreviewLinesSingleLineWithoutTrailingNewline(t *testing.T) {
 
 	theme := tuiTheme{Name: "tokyonight", Colors: cloneColorMap(builtinThemes["tokyonight"])}
 
-	lines := buildPreviewLines(path, 72, 10, theme)
+	lines := preview.BuildLines(path, 72, 10, previewPalette(theme))
 	if len(lines) == 0 {
 		t.Fatal("expected preview lines")
 	}

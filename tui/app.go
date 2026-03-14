@@ -6,7 +6,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/MysticalDevil/codexsm/session"
 	"github.com/MysticalDevil/codexsm/tui/preview"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -171,10 +170,6 @@ const (
 	angleTagToneSuccess   = preview.AngleTagToneSuccess
 )
 
-func previewCacheKeyForSession(s session.Session, width int) string {
-	return preview.CacheKeyForSession(s.Path, width, s.SizeBytes, s.UpdatedAt.UnixNano())
-}
-
 func (m *tuiModel) ensurePreviewRequest() tea.Cmd {
 	selected, ok := m.selectedSession()
 	if !ok {
@@ -184,7 +179,7 @@ func (m *tuiModel) ensurePreviewRequest() tea.Cmd {
 
 	width, lines := m.currentPreviewRequestDims()
 
-	key := previewCacheKeyForSession(selected, width)
+	key := preview.CacheKeyForSession(selected.Path, width, selected.SizeBytes, selected.UpdatedAt.UnixNano())
 	if _, ok := m.previewCacheGet(key); ok {
 		m.previewWait = ""
 		return nil
@@ -209,7 +204,7 @@ func (m *tuiModel) ensurePreviewRequest() tea.Cmd {
 		UpdatedAtUnix: selected.UpdatedAt.UnixNano(),
 	}
 
-	return preview.EnsureRequest(preview.Request{
+	return preview.LoadCmd(preview.Request{
 		RequestID:     req.RequestID,
 		Key:           req.Key,
 		Path:          req.Path,
@@ -290,11 +285,11 @@ func (m *tuiModel) previewCachePut(key string, lines []string) {
 	}
 
 	copied := append([]string(nil), lines...)
-	newSize := previewLinesBytes(copied)
+	newSize := preview.LinesBytes(copied)
 
 	oldSize := int64(0)
 	if old, ok := m.previewCache[key]; ok {
-		oldSize = previewLinesBytes(old)
+		oldSize = preview.LinesBytes(old)
 	}
 
 	m.previewCache[key] = copied
@@ -329,7 +324,7 @@ func (m *tuiModel) previewCachePut(key string, lines []string) {
 		delete(m.previewNodes, k)
 
 		if old, ok := m.previewCache[k]; ok {
-			m.previewBytesUsed -= previewLinesBytes(old)
+			m.previewBytesUsed -= preview.LinesBytes(old)
 		}
 
 		delete(m.previewCache, k)
@@ -338,10 +333,6 @@ func (m *tuiModel) previewCachePut(key string, lines []string) {
 	if m.previewBytesUsed < 0 {
 		m.previewBytesUsed = 0
 	}
-}
-
-func previewLinesBytes(lines []string) int64 {
-	return preview.LinesBytes(lines)
 }
 
 // previewFor is a synchronous preview helper used by unit tests.
@@ -359,18 +350,14 @@ func (m *tuiModel) previewFor(path string, width, lines int) []string {
 		return cached
 	}
 
-	out := buildPreviewLines(path, width, lines, m.theme)
+	out := preview.BuildLines(path, width, lines, previewPalette(m.theme))
 	m.previewCachePut(key, out)
 
 	return out
 }
 
-func buildPreviewLines(path string, width, lines int, theme tuiTheme) []string {
-	return preview.BuildLines(path, width, lines, previewPalette(theme))
-}
-
 func previewPalette(theme tuiTheme) preview.ThemePalette {
-	def := builtinThemes[defaultTUIThemeName()]
+	def := builtinThemes[DefaultThemeName()]
 
 	return preview.ThemePalette{
 		PrefixDefault:   theme.hex("prefix_default", def["prefix_default"]),
@@ -383,8 +370,4 @@ func previewPalette(theme tuiTheme) preview.ThemePalette {
 		TagLifecycle:    theme.hex("tag_lifecycle", def["tag_lifecycle"]),
 		TagSuccess:      theme.hex("tag_success", def["tag_success"]),
 	}
-}
-
-func classifyAngleTag(tag string) angleTagTone {
-	return preview.ClassifyAngleTag(tag)
 }

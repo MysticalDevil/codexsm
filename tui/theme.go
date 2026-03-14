@@ -41,7 +41,7 @@ func (t tuiTheme) merge(overrides map[string]string) tuiTheme {
 	return t
 }
 
-func defaultTUIThemeName() string {
+func DefaultThemeName() string {
 	return "tokyonight"
 }
 
@@ -63,7 +63,7 @@ func resolveTUITheme(cfgName string, cfgColors map[string]string, flagName strin
 	}
 
 	if name == "" || name == "custom" {
-		name = defaultTUIThemeName()
+		name = DefaultThemeName()
 	}
 
 	base, ok := builtinThemes[name]
@@ -124,10 +124,6 @@ func cloneColorMap(m map[string]string) map[string]string {
 	}
 
 	return out
-}
-
-func DefaultThemeName() string {
-	return defaultTUIThemeName()
 }
 
 func ValidateTheme(cfgName string, cfgColors map[string]string, flagName string, flagColors []string) error {
