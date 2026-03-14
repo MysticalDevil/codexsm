@@ -94,7 +94,7 @@ func (m tuiModel) View() string {
 	leftW := max(12, metrics.LeftOuterW-leftBase.GetHorizontalFrameSize())
 	rightW := max(12, metrics.RightOuterW-rightBase.GetHorizontalFrameSize())
 
-	_, previewLines, infoLines := m.buildPanelLines(rightW, statusColor)
+	_, previewLines, infoLines := m.buildPanelLinesForMode(rightW, statusColor, metrics.Compact)
 
 	selected, ok := m.selectedSession()
 	if ok {
@@ -118,11 +118,16 @@ func (m tuiModel) View() string {
 		rightBorder = borderFocusColor
 	}
 
+	treeOuterH := metrics.MainAreaH
+	if metrics.Compact {
+		treeOuterH = metrics.TreeOuterH
+	}
+
 	leftPane := leftBase.
 		Width(leftW).
-		Height(max(2, metrics.MainAreaH-leftBase.GetVerticalFrameSize())).
+		Height(max(2, treeOuterH-leftBase.GetVerticalFrameSize())).
 		BorderForeground(lipgloss.Color(leftBorder)).
-		Render(m.renderTreePaneContent(leftW, max(2, metrics.MainAreaH-leftBase.GetVerticalFrameSize()), statusColor))
+		Render(m.renderTreePaneContentForMode(leftW, max(2, treeOuterH-leftBase.GetVerticalFrameSize()), statusColor, metrics.Compact))
 
 	previewInnerH := max(2, metrics.PreviewOuterH-rightBase.GetVerticalFrameSize())
 	previewPane := rightBase.
@@ -151,6 +156,7 @@ func (m tuiModel) View() string {
 		strings.Repeat(" ", metrics.GapW),
 		rightBlock,
 	)
+
 	mainOuterW := lipgloss.Width(mainArea)
 	mainArea = lipgloss.NewStyle().Width(mainOuterW).MaxWidth(mainOuterW).Render(mainArea)
 	keybar := renderKeysBar(mainOuterW)
@@ -164,9 +170,11 @@ func (m tuiModel) View() string {
 	return mainContainer
 }
 
-func (m tuiModel) buildPanelLines(rightW int, statusColor string) ([]string, []string, []string) {
+func (m tuiModel) buildPanelLinesForMode(rightW int, statusColor string, compact bool) ([]string, []string, []string) {
 	leftTitleText := "SESSIONS"
-	if gb := strings.ToLower(strings.TrimSpace(m.groupBy)); gb != "" && gb != "none" {
+	if compact {
+		leftTitleText = "SES [C]"
+	} else if gb := strings.ToLower(strings.TrimSpace(m.groupBy)); gb != "" && gb != "none" {
 		leftTitleText = fmt.Sprintf("SESSIONS (By %s)", strings.ToUpper(gb[:1])+gb[1:])
 	}
 
@@ -200,12 +208,16 @@ func (m tuiModel) buildPanelLines(rightW int, statusColor string) ([]string, []s
 			Render(" "+truncateDisplay(m.status, max(8, rightW-2))),
 	)
 	highRisk, mediumRisk := m.riskCounts()
+
 	riskLine := fmt.Sprintf(
 		" risk=%d (high=%d medium=%d) ",
 		highRisk+mediumRisk,
 		highRisk,
 		mediumRisk,
 	)
+	if compact {
+		riskLine = fmt.Sprintf(" r=%d h=%d m=%d ", highRisk+mediumRisk, highRisk, mediumRisk)
+	}
 
 	riskColor := m.colorHex("status_info")
 	if highRisk > 0 {
@@ -226,8 +238,14 @@ func (m tuiModel) buildPanelLines(rightW int, statusColor string) ([]string, []s
 }
 
 func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
+	return m.renderTreeLinesForMode(leftW, statusColor, m.compactMode())
+}
+
+func (m tuiModel) renderTreeLinesForMode(leftW int, statusColor string, compact bool) []string {
 	leftTitleText := "SESSIONS"
-	if gb := strings.ToLower(strings.TrimSpace(m.groupBy)); gb != "" && gb != "none" {
+	if compact {
+		leftTitleText = "SES [C]"
+	} else if gb := strings.ToLower(strings.TrimSpace(m.groupBy)); gb != "" && gb != "none" {
 		leftTitleText = fmt.Sprintf("SESSIONS (By %s)", strings.ToUpper(gb[:1])+gb[1:])
 	}
 
@@ -255,7 +273,12 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 	for i := start; i < end; i++ {
 		item := m.tree[i]
 		if item.Kind == treeItemMonth {
-			line := truncateDisplay(item.Label, leftW-4)
+			groupLabel := item.Label
+			if compact {
+				groupLabel = compactTreeGroupLabel(item.Label)
+			}
+
+			line := truncateDisplay(groupLabel, leftW-4)
 
 			if i == m.cursor {
 				if m.focus == focusTree {
@@ -264,27 +287,87 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 						Background(lipgloss.Color(m.colorHex("selected_bg"))).
 						Bold(true).
 						Render(line)
-					leftLines = append(
-						leftLines,
-						lipgloss.NewStyle().
-							Foreground(lipgloss.Color(m.colorHex("cursor_active"))).
-							Render("▌")+" "+line,
-					)
+
+					if compact {
+						leftLines = append(leftLines, "  "+line)
+					} else {
+						leftLines = append(
+							leftLines,
+							lipgloss.NewStyle().
+								Foreground(lipgloss.Color(m.colorHex("cursor_active"))).
+								Render("▌")+" "+line,
+						)
+					}
 				} else {
 					line = lipgloss.NewStyle().
 						Bold(true).
 						Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).
 						Render(line)
-					leftLines = append(
-						leftLines,
-						lipgloss.NewStyle().
-							Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).
-							Render("▏")+" "+line,
-					)
+
+					if compact {
+						leftLines = append(leftLines, "  "+line)
+					} else {
+						leftLines = append(
+							leftLines,
+							lipgloss.NewStyle().
+								Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).
+								Render("▏")+" "+line,
+						)
+					}
 				}
 			} else {
-				line = lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("accent_group"))).Render(line)
+				groupColor := m.colorHex("accent_group")
+				if compact && m.collapsedGroups[item.Month] {
+					groupColor = m.colorHex("status_info")
+				}
+
+				line = lipgloss.NewStyle().Foreground(lipgloss.Color(groupColor)).Render(line)
 				leftLines = append(leftLines, "  "+line)
+			}
+
+			continue
+		}
+
+		if compact {
+			idWidth := max(4, leftW-4)
+			idText := truncateDisplay(item.Label, idWidth)
+			idColor := m.colorHex("status_info")
+
+			if item.Index >= 0 && item.Index < len(m.sessions) {
+				_, color, nonHealthy := m.treeHealthVisual(
+					m.sessions[item.Index].Health,
+					item.HostMissing,
+				)
+
+				idColor = color
+				if nonHealthy {
+					idText = lipgloss.NewStyle().
+						Bold(true).
+						Foreground(lipgloss.Color(color)).
+						Render(idText)
+				}
+			}
+
+			if i == m.cursor {
+				if m.focus == focusTree {
+					idText = lipgloss.NewStyle().
+						Foreground(lipgloss.Color(m.colorHex("selected_fg"))).
+						Background(lipgloss.Color(m.colorHex("selected_bg"))).
+						Bold(true).
+						Render(idText)
+				} else {
+					idText = lipgloss.NewStyle().
+						Bold(true).
+						Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).
+						Render(idText)
+				}
+
+				leftLines = append(leftLines, "  "+idText)
+			} else {
+				idText = lipgloss.NewStyle().
+					Foreground(lipgloss.Color(idColor)).
+					Render(idText)
+				leftLines = append(leftLines, "  "+idText)
 			}
 
 			continue
@@ -298,6 +381,7 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 		connectorPart := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(statusColor)).
 			Render("  " + connector + " ")
+
 		idWidth := max(4, leftW-10)
 		idText := truncateDisplay(item.Label, idWidth)
 		healthSymbol := "●"
@@ -359,9 +443,13 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 }
 
 func (m tuiModel) renderTreePaneContent(leftW, leftInnerH int, statusColor string) string {
-	lines := m.renderTreeLines(leftW, statusColor)
+	return m.renderTreePaneContentForMode(leftW, leftInnerH, statusColor, m.compactMode())
+}
 
-	footer := m.treeFooterLine(leftW, statusColor)
+func (m tuiModel) renderTreePaneContentForMode(leftW, leftInnerH int, statusColor string, compact bool) string {
+	lines := m.renderTreeLinesForMode(leftW, statusColor, compact)
+
+	footer := m.treeFooterLine(leftW, statusColor, compact)
 	if leftInnerH <= 1 {
 		return footer
 	}
@@ -379,7 +467,7 @@ func (m tuiModel) renderTreePaneContent(leftW, leftInnerH int, statusColor strin
 	return strings.Join(lines, "\n")
 }
 
-func (m tuiModel) treeFooterLine(leftW int, statusColor string) string {
+func (m tuiModel) treeFooterLine(leftW int, statusColor string, compact bool) string {
 	pos, total := m.selectedSessionPosition()
 	high, medium := m.riskCounts()
 	warn := high + medium
@@ -409,6 +497,17 @@ func (m tuiModel) treeFooterLine(leftW int, statusColor string) string {
 		Bold(true).
 		Foreground(lipgloss.Color(riskColor)).
 		Render(fmt.Sprintf("RISK: %d", high))
+
+	if compact {
+		warnPart = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(warnColor)).
+			Render(fmt.Sprintf("W:%d", warn))
+		riskPart = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(riskColor)).
+			Render(fmt.Sprintf("R:%d", high))
+	}
 
 	content := posPart + " | " + warnPart + " " + riskPart
 
@@ -533,8 +632,24 @@ func fitStyledWidth(v string, width int) string {
 	return v + strings.Repeat(" ", width-w)
 }
 
+func (m tuiModel) compactMode() bool {
+	return IsCompactWidth(m.width)
+}
+
+func compactTreeGroupLabel(v string) string {
+	if strings.HasPrefix(v, "▾ ") || strings.HasPrefix(v, "▸ ") {
+		return strings.TrimSpace(v[3:])
+	}
+
+	return v
+}
+
 func (m tuiModel) renderBottomLine(width int) string {
 	if m.pendingAction == "" {
+		if m.compactMode() {
+			return renderCompactKeysLine(width, m.theme)
+		}
+
 		return renderKeysLine(width, m.theme)
 	}
 

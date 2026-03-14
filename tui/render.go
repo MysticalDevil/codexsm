@@ -83,6 +83,44 @@ func renderKeysLine(width int, theme tuiTheme) string {
 	return truncateDisplay(renderKeysSegments(variants[len(variants)-1], theme), width)
 }
 
+func renderCompactKeysLine(width int, theme tuiTheme) string {
+	variants := [][]keysSegment{
+		{
+			{label: "[KEYS]", kind: keysLabel},
+			{label: " j/k g/G z/Z Tab ", kind: keysKey},
+			{label: "tree/nav", kind: keysText},
+			{label: " | ", kind: keysSep},
+			{label: "d/r/m", kind: keysKey},
+			{label: " action", kind: keysText},
+			{label: " | ", kind: keysSep},
+			{label: "y/n q", kind: keysKey},
+		},
+		{
+			{label: "[KEYS]", kind: keysLabel},
+			{label: " j/k g/G z/Z ", kind: keysKey},
+			{label: " | ", kind: keysSep},
+			{label: "d/r/m q", kind: keysKey},
+		},
+		{
+			{label: "[K]", kind: keysLabel},
+			{label: " z/Z q ", kind: keysKey},
+		},
+	}
+
+	if width <= 0 {
+		return renderKeysSegments(variants[len(variants)-1], theme)
+	}
+
+	for _, variant := range variants {
+		line := renderKeysSegments(variant, theme)
+		if lipgloss.Width(line) <= width {
+			return line
+		}
+	}
+
+	return truncateDisplay(renderKeysSegments(variants[len(variants)-1], theme), width)
+}
+
 type keysSegmentKind int
 
 const (

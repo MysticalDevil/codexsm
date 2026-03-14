@@ -70,7 +70,7 @@ func TestTUIViewMinSizeWarning(t *testing.T) {
 	m := tuiModel{width: 80, height: 20}
 
 	out := m.View()
-	if !strings.Contains(out, "Required at least: 119x24") {
+	if !strings.Contains(out, "Required at least: 81x24") {
 		t.Fatalf("expected min-size warning, got: %q", out)
 	}
 
@@ -87,6 +87,47 @@ func TestTUIViewMinSizeWarning(t *testing.T) {
 		if got := runewidth.StringWidth(line); got > maxWidth {
 			t.Fatalf("min-size warning line exceeds width=%d, got=%d line=%q", maxWidth, got, line)
 		}
+	}
+}
+
+func TestTUIViewCompactModeAtMinimumWidth(t *testing.T) {
+	m := tuiModel{
+		width:   81,
+		height:  30,
+		focus:   focusTree,
+		groupBy: "host",
+		sessions: []session.Session{
+			{SessionID: "a", UpdatedAt: time.Now(), HostDir: "/tmp/a", Health: session.HealthOK},
+			{SessionID: "b", UpdatedAt: time.Now().Add(-time.Minute), HostDir: "/tmp/b", Health: session.HealthMissingMeta},
+		},
+		previewCache: make(map[string][]string),
+	}
+	m.rebuildTree()
+
+	out := stripANSIForTest(m.View())
+	if strings.Contains(out, "Terminal too small") {
+		t.Fatalf("did not expect min-size warning at compact minimum width, got: %q", out)
+	}
+
+	if !strings.Contains(out, "SES [C]") {
+		t.Fatalf("expected compact indicator in tree title, got: %q", out)
+	}
+
+	maxWidth := Compute(m.width, m.height).TotalW
+	for _, line := range strings.Split(out, "\n") {
+		if got := runewidth.StringWidth(line); got > maxWidth {
+			t.Fatalf("compact view line exceeds width=%d, got=%d line=%q", maxWidth, got, line)
+		}
+	}
+
+	joined := strings.Join(strings.Split(out, "\n"), "\n")
+
+	if strings.Contains(joined, " ├─ ") || strings.Contains(joined, " └─ ") {
+		t.Fatalf("compact tree should not use connector symbols, got: %q", joined)
+	}
+
+	if strings.Contains(joined, "▾ ") || strings.Contains(joined, "▸ ") {
+		t.Fatalf("compact tree should not show group arrow symbols, got: %q", joined)
 	}
 }
 

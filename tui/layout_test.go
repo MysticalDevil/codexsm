@@ -29,7 +29,7 @@ func TestRenderWidth(t *testing.T) {
 }
 
 func TestIsTooSmall(t *testing.T) {
-	if IsTooSmall(118, 30) != true {
+	if IsTooSmall(80, 30) != true {
 		t.Fatal("width below minimum should be too small")
 	}
 
@@ -37,12 +37,22 @@ func TestIsTooSmall(t *testing.T) {
 		t.Fatal("height below minimum should be too small")
 	}
 
-	if IsTooSmall(119, 30) != false {
+	if IsTooSmall(81, 30) != false {
 		t.Fatal("expected enough terminal size")
 	}
 	// Unknown runtime size should not trigger warning path.
 	if IsTooSmall(0, 0) != false {
 		t.Fatal("zero size should not be treated as too small")
+	}
+}
+
+func TestIsCompactWidth(t *testing.T) {
+	if IsCompactWidth(118) != true {
+		t.Fatal("expected compact mode at width 118")
+	}
+
+	if IsCompactWidth(119) != false {
+		t.Fatal("expected normal mode at width 119")
 	}
 }
 
@@ -80,5 +90,28 @@ func TestComputeDropsGapAtNarrowWidths(t *testing.T) {
 	m := Compute(128, 32)
 	if m.GapW != 0 {
 		t.Fatalf("expected narrow layout gap=0, got %+v", m)
+	}
+}
+
+func TestComputeCompactLayout(t *testing.T) {
+	m := Compute(81, 28)
+	if !m.Compact {
+		t.Fatalf("expected compact metrics, got %+v", m)
+	}
+
+	if m.LeftOuterW >= m.RightOuterW {
+		t.Fatalf("expected right pane wider than left in compact mode, got %+v", m)
+	}
+
+	if m.LeftOuterW+m.GapW+m.RightOuterW > m.TotalW {
+		t.Fatalf("compact horizontal overflow: %+v", m)
+	}
+
+	if m.RightOuterW < 42 || m.LeftOuterW < 22 {
+		t.Fatalf("compact min widths not enforced: %+v", m)
+	}
+
+	if m.InfoOuterH+m.PreviewOuterH != m.MainAreaH {
+		t.Fatalf("compact right pane vertical mismatch: %+v", m)
 	}
 }

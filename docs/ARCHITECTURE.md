@@ -205,6 +205,7 @@ Rendering note:
 - main panes inherit the terminal's default background instead of painting the theme `bg`
 - theme `bg` is reserved for local contrast needs such as foreground-on-accent combinations
 - grouped tree supports runtime fold state: `z` toggles the selected session's group, `Z` expands all groups
+- widths below normal threshold automatically switch to compact mode (minimum runtime width: 81 columns), using stacked panes and compact key/tree/footer text
 
 ## Third-Party Packages
 

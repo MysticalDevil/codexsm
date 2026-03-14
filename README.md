@@ -138,6 +138,7 @@ TUI note:
 - `bg` remains available for local emphasis, such as highlighted action prompts
 - semantic state tokens are available for status UI: `status_ok`, `status_warn`, `status_risk`, `status_info`, `accent_group`
 - group tree supports folding with `z` (toggle selected session group) and `Z` (expand all groups)
+- narrow terminals auto-enable compact mode (supported minimum: 81x24 runtime size), and tree title shows `[COMPACT]`
 
 ## Build And Dev
 
