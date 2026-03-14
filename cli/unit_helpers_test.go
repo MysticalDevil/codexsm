@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/session"
 	"github.com/spf13/cobra"
@@ -49,7 +50,7 @@ func TestListHelpers(t *testing.T) {
 	if got := shortID(s.SessionID); got != "11111111-111" {
 		t.Fatalf("unexpected short id: %q", got)
 	}
-	if got := formatBytesIEC(1536); got != "1.5KiB" {
+	if got := core.FormatBytesIEC(1536); got != "1.5KiB" {
 		t.Fatalf("unexpected size: %q", got)
 	}
 	if !hasHealthColumn([]listColumn{{Key: "id"}, {Key: "health"}}) {

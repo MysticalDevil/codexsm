@@ -120,7 +120,7 @@ func BuildGroupStats(sessions []session.Session, by, sortBy, order string) ([]Gr
 	for key, a := range m {
 		latest := "-"
 		if !a.latest.IsZero() {
-			latest = formatDisplayTime(a.latest)
+			latest = core.FormatDisplayTime(a.latest)
 		}
 		out = append(out, GroupStat{Group: key, Count: a.count, SizeBytes: a.size, Latest: latest})
 	}
@@ -156,11 +156,4 @@ func groupLess(a, b GroupStat, sortMode string) bool {
 	default:
 		return a.Group < b.Group
 	}
-}
-
-func formatDisplayTime(t time.Time) string {
-	if t.IsZero() {
-		return "-"
-	}
-	return t.Local().Format("2006-01-02 15:04:05")
 }

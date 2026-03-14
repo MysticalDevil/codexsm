@@ -285,8 +285,8 @@ func renderDoctorChecks(checks []doctorCheck, color bool) string {
 		}
 	}
 
-	headCheck := padRight("CHECK", checkW)
-	headStatus := padRight("STATUS", statusW)
+	headCheck := fmt.Sprintf("%-*s", checkW, "CHECK")
+	headStatus := fmt.Sprintf("%-*s", statusW, "STATUS")
 	headDetail := "DETAIL"
 	if color {
 		headCheck = colorize(headCheck, ansiCyanBold, true)
@@ -296,7 +296,7 @@ func renderDoctorChecks(checks []doctorCheck, color bool) string {
 	_, _ = fmt.Fprintf(&buf, "%s  %s  %s\n", headCheck, headStatus, headDetail)
 
 	for _, c := range checks {
-		status := padRight(string(c.Level), statusW)
+		status := fmt.Sprintf("%-*s", statusW, string(c.Level))
 		if color {
 			switch c.Level {
 			case doctorPass:
@@ -311,19 +311,12 @@ func renderDoctorChecks(checks []doctorCheck, color bool) string {
 		if len(lines) == 0 {
 			lines = []string{""}
 		}
-		_, _ = fmt.Fprintf(&buf, "%s  %s  %s\n", padRight(c.Name, checkW), status, lines[0])
+		_, _ = fmt.Fprintf(&buf, "%-*s  %s  %s\n", checkW, c.Name, status, lines[0])
 		for _, line := range lines[1:] {
 			_, _ = fmt.Fprintf(&buf, "%s  %s  %s\n", strings.Repeat(" ", checkW), strings.Repeat(" ", statusW), line)
 		}
 	}
 	return buf.String()
-}
-
-func padRight(s string, width int) string {
-	if len(s) >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-len(s))
 }
 
 func doctorDetailLines(detail string) []string {

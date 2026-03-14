@@ -9,6 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/usecase"
 
 	"github.com/spf13/cobra"
@@ -123,7 +124,7 @@ func renderGroupTable(stats []groupStat, by, colorMode string, out io.Writer) (s
 	w := tabwriter.NewWriter(&buf, 2, 4, 2, ' ', 0)
 	_, _ = fmt.Fprintln(w, "GROUP\tCOUNT\tSIZE\tLATEST")
 	for _, g := range stats {
-		_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", g.Group, g.Count, formatBytesIEC(g.SizeBytes), g.Latest)
+		_, _ = fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", g.Group, g.Count, core.FormatBytesIEC(g.SizeBytes), g.Latest)
 	}
 	if err := w.Flush(); err != nil {
 		return "", err

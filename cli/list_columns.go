@@ -78,11 +78,11 @@ func listColumnValue(key string, s session.Session, home string, headWidth int, 
 	case "session_id":
 		return s.SessionID
 	case "created_at":
-		return formatDisplayTime(s.CreatedAt)
+		return core.FormatDisplayTime(s.CreatedAt)
 	case "updated_at":
-		return formatDisplayTime(s.UpdatedAt)
+		return core.FormatDisplayTime(s.UpdatedAt)
 	case "size":
-		return formatBytesIEC(s.SizeBytes)
+		return core.FormatBytesIEC(s.SizeBytes)
 	case "size_bytes":
 		return fmt.Sprintf("%d", s.SizeBytes)
 	case "health":
@@ -137,27 +137,6 @@ func hasHealthColumn(cols []listColumn) bool {
 		}
 	}
 	return false
-}
-
-func formatDisplayTime(t time.Time) string {
-	if t.IsZero() {
-		return "-"
-	}
-	return t.Local().Format("2006-01-02 15:04:05")
-}
-
-func formatBytesIEC(size int64) string {
-	if size < 1024 {
-		return fmt.Sprintf("%dB", size)
-	}
-	units := []string{"KiB", "MiB", "GiB", "TiB"}
-	value := float64(size)
-	unit := -1
-	for value >= 1024 && unit < len(units)-1 {
-		value /= 1024
-		unit++
-	}
-	return fmt.Sprintf("%.1f%s", value, units[unit])
 }
 
 func writeListDelimited(out io.Writer, sessions []session.Session, sep rune, noHeader bool, columns []listColumn) error {

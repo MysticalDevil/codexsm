@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/MysticalDevil/codexsm/audit"
+	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/internal/fileutil"
 	"github.com/MysticalDevil/codexsm/internal/ops"
 	"github.com/MysticalDevil/codexsm/internal/restoreexec"
@@ -227,7 +228,7 @@ func printRestorePreview(cmd *cobra.Command, candidates []session.Session, mode 
 		sampleLimit = 0
 	}
 	logger().Debug("restore preview generated", "matched", len(candidates), "affected_bytes", totalBytes, "preview_mode", mode, "preview_limit", sampleLimit)
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "preview action=restore matched=%d affected=%s mode=%s\n", len(candidates), formatBytesIEC(totalBytes), mode)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "preview action=restore matched=%d affected=%s mode=%s\n", len(candidates), core.FormatBytesIEC(totalBytes), mode)
 	for i, s := range candidates {
 		if i >= sampleLimit {
 			break

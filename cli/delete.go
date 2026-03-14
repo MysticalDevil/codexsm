@@ -8,6 +8,7 @@ import (
 
 	"github.com/MysticalDevil/codexsm/audit"
 	"github.com/MysticalDevil/codexsm/config"
+	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/internal/deleteexec"
 	"github.com/MysticalDevil/codexsm/internal/ops"
 	"github.com/MysticalDevil/codexsm/session"
@@ -221,7 +222,7 @@ func printDeletePreview(cmd *cobra.Command, candidates []session.Session, hard b
 		sampleLimit = 0
 	}
 	logger().Debug("delete preview generated", "matched", len(candidates), "affected_bytes", totalBytes, "preview_mode", mode, "preview_limit", sampleLimit, "hard", hard)
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "preview action=%s matched=%d affected=%s mode=%s\n", action, len(candidates), formatBytesIEC(totalBytes), mode)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "preview action=%s matched=%d affected=%s mode=%s\n", action, len(candidates), core.FormatBytesIEC(totalBytes), mode)
 	for i, s := range candidates {
 		if i >= sampleLimit {
 			break
