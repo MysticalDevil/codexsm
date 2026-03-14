@@ -8,20 +8,27 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [v0.3.2] - 2026-03-15
 
+### Added
+
+- Added `agents explain` command for AGENTS.md rule-source visibility (table/json, effective vs shadowed views).
+- Added broader test coverage for TUI preview build/index/service flow and CLI command/util/pager paths.
+- Added dedicated usecase tests after delete/restore orchestration split (`usecase/delete*`, `usecase/restore*`, `usecase/batch_policy*`).
+
 ### Changed
 
-- Refactored CLI command layout to subpackages (`cli/config`, `cli/delete`, `cli/doctor`, `cli/list`, `cli/restore`, `cli/util`) and moved related tests into those package boundaries.
+- Refactored TUI architecture to a clearer layered layout (`app/state/actions/layout/render/theme/tree/preview`) and moved preview orchestration/index handling into `tui/preview/*`.
+- Consolidated TUI runtime flow into `tui/app.go`, removed legacy local preview/theme passthrough helpers, and flattened small subpackage file layouts.
+- Refactored CLI command layout to subpackages (`cli/config`, `cli/delete`, `cli/doctor`, `cli/list`, `cli/restore`, `cli/util`), and relocated related tests into those package boundaries.
 - Renamed session migration command implementation files from `session_migrate*` to `migrate*` while preserving `codexsm session migrate` behavior and flags.
 - Split usecase delete/restore orchestration into focused files (`usecase/delete.go`, `usecase/restore.go`, `usecase/action_exec.go`, `usecase/batch_policy.go`) and removed the prior mixed file.
 - Renamed delete/restore action input naming from `Candidates` to `Sessions` across usecase, CLI, and TUI call paths for clearer semantics.
-- Removed non-essential pass-through aliases/wrappers in CLI/TUI layers and standardized direct type usage where no boundary semantics were added.
-- Refreshed architecture documentation and dependency diagram to match current module topology and package responsibilities.
-- Updated release/documentation examples for `v0.3.2` and validated coverage gate status for release readiness.
+- Reused shared bounded-line reader logic in session scanner and migration paths to reduce duplicate parsing limits code.
+- Applied repo-wide lint-driven cleanups and tightened agent/lint conventions against thin pass-through wrappers.
+- Refreshed architecture and release docs (including topology/diagram updates and `v0.3.2` examples) for release prep consistency.
 
-### Added
+### Fixed
 
-- Added focused tests for `cli/delete`, `cli/restore`, `cli/util`, and `tui/preview` to strengthen command-path and preview/index behavior coverage.
-- Added pager interaction tests in `cli/pager_test.go` and parser coverage for migration `--since` handling.
+- Fixed TUI lint compliance for exhaustive switch handling and related regressions caught during refactor/lint passes.
 
 ## [v0.3.1] - 2026-03-14
 
