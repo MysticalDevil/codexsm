@@ -23,6 +23,7 @@ coverage.out
 *.tmp
 __pycache__/
 /tmp/
+.release/
 
 # Local planning docs
 TARGET.md
