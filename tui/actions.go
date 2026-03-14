@@ -96,7 +96,7 @@ func (m *tuiModel) requestHostMigrate() {
 func (m *tuiModel) runDelete(selected session.Session) {
 	sel := session.Selector{ID: selected.SessionID}
 	out, err := usecase.RunDeleteAction(usecase.DeleteActionInput{
-		Candidates:      []session.Session{selected},
+		Sessions:        []session.Session{selected},
 		Selector:        sel,
 		DryRun:          m.dryRun,
 		Confirm:         m.confirm,
@@ -151,7 +151,7 @@ func (m *tuiModel) migrateCandidatesForHost(host string) []session.Session {
 func (m *tuiModel) runHostMigrate(host string, candidates []session.Session) {
 	sel := session.Selector{HostContains: host}
 	out, err := usecase.RunDeleteAction(usecase.DeleteActionInput{
-		Candidates:      candidates,
+		Sessions:        candidates,
 		Selector:        sel,
 		DryRun:          m.dryRun,
 		Confirm:         m.confirm,
@@ -218,7 +218,7 @@ func (m *tuiModel) requestRestore() {
 func (m *tuiModel) runRestore(selected session.Session) {
 	sel := session.Selector{ID: selected.SessionID}
 	out, err := usecase.RunRestoreAction(usecase.RestoreActionInput{
-		Candidates:        []session.Session{selected},
+		Sessions:          []session.Session{selected},
 		Selector:          sel,
 		DryRun:            m.dryRun,
 		Confirm:           m.confirm,

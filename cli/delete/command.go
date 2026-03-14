@@ -87,7 +87,7 @@ func NewCommand(
 
 			now := nowFn()
 
-			selected, err := usecase.SelectDeleteCandidates(usecase.DeleteCandidatesInput{
+			selected, err := usecase.SelectDeleteSessions(usecase.DeleteSelectInput{
 				SessionsRoot: sessionsRoot,
 				Selector:     sel,
 				Now:          now,
@@ -96,7 +96,7 @@ func NewCommand(
 				return cliutil.WithExitCode(err, 1)
 			}
 
-			candidates := selected.Candidates
+			candidates := selected.Sessions
 			lg.Info("matched delete candidates", "count", len(candidates), "dry_run", dryRun, "hard", hard)
 
 			if !dryRun {
@@ -117,7 +117,7 @@ func NewCommand(
 			}
 
 			out, deleteErr := usecase.RunDeleteAction(usecase.DeleteActionInput{
-				Candidates:      candidates,
+				Sessions:        candidates,
 				Selector:        sel,
 				DryRun:          dryRun,
 				Confirm:         confirm,

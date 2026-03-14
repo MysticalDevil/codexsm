@@ -91,7 +91,7 @@ func NewCommand(
 			trashSessionsRoot := filepath.Join(trashRoot, "sessions")
 			batchID = strings.TrimSpace(batchID)
 
-			selected, err := usecase.SelectRestoreCandidates(usecase.RestoreCandidatesInput{
+			selected, err := usecase.SelectRestoreSessions(usecase.RestoreSelectInput{
 				TrashSessionsRoot: trashSessionsRoot,
 				Selector:          sel,
 				BatchID:           batchID,
@@ -102,7 +102,7 @@ func NewCommand(
 				return cliutil.WithExitCode(err, 1)
 			}
 
-			candidates := selected.Candidates
+			candidates := selected.Sessions
 			lg.Info("matched restore candidates", "count", len(candidates), "dry_run", dryRun)
 
 			if !dryRun {
@@ -123,7 +123,7 @@ func NewCommand(
 			}
 
 			out, runErr := usecase.RunRestoreAction(usecase.RestoreActionInput{
-				Candidates:         candidates,
+				Sessions:           candidates,
 				Selector:           sel,
 				DryRun:             dryRun,
 				Confirm:            confirm,

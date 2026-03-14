@@ -13,7 +13,7 @@ const (
 )
 
 type DeleteActionInput struct {
-	Candidates      []session.Session
+	Sessions        []session.Session
 	Selector        session.Selector
 	DryRun          bool
 	Confirm         bool
@@ -71,7 +71,7 @@ func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
 		executor = SessionDeleteExecutor{}
 	}
 
-	sum, err := executor.Execute(in.Candidates, in.Selector, session.DeleteOptions{
+	sum, err := executor.Execute(in.Sessions, in.Selector, session.DeleteOptions{
 		DryRun:       in.DryRun,
 		Confirm:      in.Confirm,
 		Yes:          in.Yes,
@@ -86,7 +86,7 @@ func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
 		return out, err
 	}
 
-	if len(in.Candidates) > 0 {
+	if len(in.Sessions) > 0 {
 		batchID, batchErr := in.AuditSink.NewBatchID()
 		if batchErr != nil {
 			return out, batchErr
@@ -106,7 +106,7 @@ func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
 		sum.Action,
 		sum.Simulation,
 		in.Selector,
-		in.Candidates,
+		in.Sessions,
 		sum.AffectedBytes,
 		sum.Results,
 		sum.ErrorSummary,
@@ -117,7 +117,7 @@ func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
 }
 
 type RestoreActionInput struct {
-	Candidates         []session.Session
+	Sessions           []session.Session
 	Selector           session.Selector
 	DryRun             bool
 	Confirm            bool
@@ -172,7 +172,7 @@ func RunRestoreAction(in RestoreActionInput) (RestoreActionResult, error) {
 		executor = SessionRestoreExecutor{}
 	}
 
-	sum, err := executor.Execute(in.Candidates, in.Selector, session.RestoreOptions{
+	sum, err := executor.Execute(in.Sessions, in.Selector, session.RestoreOptions{
 		DryRun:             in.DryRun,
 		Confirm:            in.Confirm,
 		Yes:                in.Yes,
@@ -187,7 +187,7 @@ func RunRestoreAction(in RestoreActionInput) (RestoreActionResult, error) {
 		return out, err
 	}
 
-	if len(in.Candidates) > 0 {
+	if len(in.Sessions) > 0 {
 		batchID, batchErr := in.AuditSink.NewBatchID()
 		if batchErr != nil {
 			return out, batchErr
@@ -207,7 +207,7 @@ func RunRestoreAction(in RestoreActionInput) (RestoreActionResult, error) {
 		sum.Action,
 		sum.Simulation,
 		in.Selector,
-		in.Candidates,
+		in.Sessions,
 		sum.AffectedBytes,
 		sum.Results,
 		sum.ErrorSummary,
