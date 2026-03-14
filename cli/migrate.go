@@ -7,11 +7,11 @@ import (
 
 	cliutil "github.com/MysticalDevil/codexsm/cli/util"
 	"github.com/MysticalDevil/codexsm/config"
-	sessionmigrate "github.com/MysticalDevil/codexsm/session/migrate"
+	"github.com/MysticalDevil/codexsm/session/migrate"
 	"github.com/spf13/cobra"
 )
 
-func newSessionMigrateCmd() *cobra.Command {
+func newMigrateCmd() *cobra.Command {
 	var (
 		fromPath     string
 		toPath       string
@@ -66,7 +66,7 @@ func newSessionMigrateCmd() *cobra.Command {
 			}
 
 			if filePath != "" {
-				result, err := sessionmigrate.MigrateSessionsBatch(sessionmigrate.MigrateBatchOptions{
+				result, err := migrate.MigrateSessionsBatch(migrate.MigrateBatchOptions{
 					FilePath:     filePath,
 					SessionsRoot: sessionsRoot,
 					StateDBPath:  stateDB,
@@ -77,7 +77,7 @@ func newSessionMigrateCmd() *cobra.Command {
 					Confirm:      confirm,
 					PrintCreated: printCreated,
 				})
-				printSessionMigrateBatchResult(cmd, result)
+				printMigrateBatchResult(cmd, result)
 
 				if err != nil {
 					return cliutil.WithExitCode(err, 1)
@@ -86,7 +86,7 @@ func newSessionMigrateCmd() *cobra.Command {
 				return nil
 			}
 
-			result, err := sessionmigrate.MigrateSessions(sessionmigrate.MigrateOptions{
+			result, err := migrate.MigrateSessions(migrate.MigrateOptions{
 				FromCWD:      fromPath,
 				ToCWD:        toPath,
 				Branch:       branch,
@@ -103,7 +103,7 @@ func newSessionMigrateCmd() *cobra.Command {
 				return cliutil.WithExitCode(err, 1)
 			}
 
-			printSessionMigrateResult(cmd, result)
+			printMigrateResult(cmd, result)
 
 			return nil
 		},
@@ -139,7 +139,7 @@ func parseSinceTime(raw string) (time.Time, bool, error) {
 	return time.Time{}, false, fmt.Errorf("invalid --since value %q: expected RFC3339 timestamp or YYYY-MM-DD", raw)
 }
 
-func printSessionMigrateResult(cmd *cobra.Command, result sessionmigrate.MigrateResult) {
+func printMigrateResult(cmd *cobra.Command, result migrate.MigrateResult) {
 	out := cmd.OutOrStdout()
 
 	action := "dry-run"
@@ -171,7 +171,7 @@ func printSessionMigrateResult(cmd *cobra.Command, result sessionmigrate.Migrate
 	}
 }
 
-func printSessionMigrateBatchResult(cmd *cobra.Command, result sessionmigrate.MigrateBatchResult) {
+func printMigrateBatchResult(cmd *cobra.Command, result migrate.MigrateBatchResult) {
 	out := cmd.OutOrStdout()
 
 	action := "dry-run"

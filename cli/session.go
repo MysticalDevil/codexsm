@@ -10,7 +10,7 @@ func newSessionCmd() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newSessionMigrateCmd())
+	cmd.AddCommand(newMigrateCmd())
 
 	return cmd
 }

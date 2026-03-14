@@ -12,7 +12,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func TestSessionMigrateDryRunAndRealExecution(t *testing.T) {
+func TestMigrateDryRunAndRealExecution(t *testing.T) {
 	root := t.TempDir()
 	sessionsRoot := filepath.Join(root, "sessions")
 
@@ -97,7 +97,7 @@ func TestSessionMigrateDryRunAndRealExecution(t *testing.T) {
 	}
 }
 
-func TestSessionMigrateFileDryRun(t *testing.T) {
+func TestMigrateFileDryRun(t *testing.T) {
 	root := t.TempDir()
 	sessionsRoot := filepath.Join(root, "sessions")
 
@@ -160,7 +160,7 @@ to = "` + filepath.Join(root, "missing-main") + `"
 	}
 }
 
-func TestSessionMigrateRejectsMixedFileAndDirectFlags(t *testing.T) {
+func TestMigrateRejectsMixedFileAndDirectFlags(t *testing.T) {
 	cmd := NewRootCmd()
 	cmd.SetOut(&bytes.Buffer{})
 	cmd.SetErr(&bytes.Buffer{})
