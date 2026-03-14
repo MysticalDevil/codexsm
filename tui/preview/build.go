@@ -13,14 +13,15 @@ import (
 
 var angleTagRe = regexp.MustCompile(`<[^>\n]{1,80}>`)
 
-type angleTagTone int
+// AngleTagTone classifies angle-bracket tag semantics for highlight styling.
+type AngleTagTone int
 
 const (
-	angleTagToneDefault angleTagTone = iota
-	angleTagToneSystem
-	angleTagToneLifecycle
-	angleTagToneDanger
-	angleTagToneSuccess
+	AngleTagToneDefault AngleTagTone = iota
+	AngleTagToneSystem
+	AngleTagToneLifecycle
+	AngleTagToneDanger
+	AngleTagToneSuccess
 )
 
 // CacheKeyForSession derives a stable preview cache key from session metadata.
@@ -134,14 +135,14 @@ func highlightAngleTags(v string, palette ThemePalette) string {
 			b.WriteString(v[last:m[0]])
 		}
 		tag := v[m[0]:m[1]]
-		switch classifyAngleTag(tag) {
-		case angleTagToneDanger:
+		switch ClassifyAngleTag(tag) {
+		case AngleTagToneDanger:
 			b.WriteString(styleDanger.Render(tag))
-		case angleTagToneSystem:
+		case AngleTagToneSystem:
 			b.WriteString(styleSystem.Render(tag))
-		case angleTagToneLifecycle:
+		case AngleTagToneLifecycle:
 			b.WriteString(styleLifecycle.Render(tag))
-		case angleTagToneSuccess:
+		case AngleTagToneSuccess:
 			b.WriteString(styleSuccess.Render(tag))
 		default:
 			b.WriteString(styleDefault.Render(tag))
@@ -154,7 +155,8 @@ func highlightAngleTags(v string, palette ThemePalette) string {
 	return b.String()
 }
 
-func classifyAngleTag(tag string) angleTagTone {
+// ClassifyAngleTag applies semantic tag classification for preview coloring.
+func ClassifyAngleTag(tag string) AngleTagTone {
 	name := strings.TrimSpace(tag)
 	name = strings.TrimPrefix(name, "<")
 	name = strings.TrimSuffix(name, ">")
@@ -165,21 +167,21 @@ func classifyAngleTag(tag string) angleTagTone {
 	}
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == "" {
-		return angleTagToneDefault
+		return AngleTagToneDefault
 	}
 	if strings.Contains(name, "error") || strings.Contains(name, "fail") || strings.Contains(name, "abort") || strings.Contains(name, "panic") {
-		return angleTagToneDanger
+		return AngleTagToneDanger
 	}
 	if strings.Contains(name, "ok") || strings.Contains(name, "success") || strings.Contains(name, "done") {
-		return angleTagToneSuccess
+		return AngleTagToneSuccess
 	}
 	if strings.Contains(name, "mode") || strings.Contains(name, "context") || strings.Contains(name, "permission") || strings.Contains(name, "sandbox") || strings.Contains(name, "instruction") {
-		return angleTagToneSystem
+		return AngleTagToneSystem
 	}
 	if strings.Contains(name, "turn") || strings.Contains(name, "session") || strings.Contains(name, "meta") || strings.Contains(name, "event") {
-		return angleTagToneLifecycle
+		return AngleTagToneLifecycle
 	}
-	return angleTagToneDefault
+	return AngleTagToneDefault
 }
 
 func wrapText(v string, width int) []string {

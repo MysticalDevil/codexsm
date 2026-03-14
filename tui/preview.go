@@ -1,23 +1,30 @@
 package tui
 
 import (
-	"strings"
+	"os"
 
 	"github.com/MysticalDevil/codexsm/tui/preview"
 )
 
-type angleTagTone int
+type angleTagTone = preview.AngleTagTone
 
 const (
-	angleTagToneDefault angleTagTone = iota
-	angleTagToneSystem
-	angleTagToneLifecycle
-	angleTagToneDanger
-	angleTagToneSuccess
+	angleTagToneDefault   = preview.AngleTagToneDefault
+	angleTagToneSystem    = preview.AngleTagToneSystem
+	angleTagToneLifecycle = preview.AngleTagToneLifecycle
+	angleTagToneDanger    = preview.AngleTagToneDanger
+	angleTagToneSuccess   = preview.AngleTagToneSuccess
 )
 
+// previewFor is a synchronous preview helper used by unit tests.
 func (m *tuiModel) previewFor(path string, width, lines int) []string {
-	key := preview.CacheKeyForSession(path, width, 0, 0)
+	sizeBytes := int64(0)
+	updatedAtUnix := int64(0)
+	if info, err := os.Stat(path); err == nil {
+		sizeBytes = info.Size()
+		updatedAtUnix = info.ModTime().UnixNano()
+	}
+	key := preview.CacheKeyForSession(path, width, sizeBytes, updatedAtUnix)
 	if cached, ok := m.previewCacheGet(key); ok {
 		return cached
 	}
@@ -46,29 +53,5 @@ func previewPalette(theme tuiTheme) preview.ThemePalette {
 }
 
 func classifyAngleTag(tag string) angleTagTone {
-	name := strings.TrimSpace(tag)
-	name = strings.TrimPrefix(name, "<")
-	name = strings.TrimSuffix(name, ">")
-	name = strings.TrimSpace(name)
-	name = strings.TrimPrefix(name, "/")
-	if i := strings.IndexAny(name, " \t"); i >= 0 {
-		name = name[:i]
-	}
-	name = strings.ToLower(strings.TrimSpace(name))
-	if name == "" {
-		return angleTagToneDefault
-	}
-	if strings.Contains(name, "error") || strings.Contains(name, "fail") || strings.Contains(name, "abort") || strings.Contains(name, "panic") {
-		return angleTagToneDanger
-	}
-	if strings.Contains(name, "ok") || strings.Contains(name, "success") || strings.Contains(name, "done") {
-		return angleTagToneSuccess
-	}
-	if strings.Contains(name, "mode") || strings.Contains(name, "context") || strings.Contains(name, "permission") || strings.Contains(name, "sandbox") || strings.Contains(name, "instruction") {
-		return angleTagToneSystem
-	}
-	if strings.Contains(name, "turn") || strings.Contains(name, "session") || strings.Contains(name, "meta") || strings.Contains(name, "event") {
-		return angleTagToneLifecycle
-	}
-	return angleTagToneDefault
+	return preview.ClassifyAngleTag(tag)
 }

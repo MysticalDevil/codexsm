@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,6 +17,7 @@ import (
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/session"
 	"github.com/MysticalDevil/codexsm/session/scanner"
+	previewpkg "github.com/MysticalDevil/codexsm/tui/preview"
 	"github.com/MysticalDevil/codexsm/usecase"
 )
 
@@ -231,6 +233,33 @@ func TestPreviewForLineWidthBound(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func TestPreviewForUsesSessionStyleCacheKey(t *testing.T) {
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
+	root := filepath.Join(workspace, "tmp")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatalf("mkdir tmp: %v", err)
+	}
+	p := filepath.Join(root, "cache-key.jsonl")
+	content := `{"type":"session_meta","payload":{"id":"x","timestamp":"2026-03-02T09:44:00.024Z"}}` + "\n" +
+		`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"cache key check"}]}}` + "\n"
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatalf("write preview fixture: %v", err)
+	}
+
+	info, err := os.Stat(p)
+	if err != nil {
+		t.Fatalf("stat preview fixture: %v", err)
+	}
+
+	m := tuiModel{previewCache: make(map[string][]string)}
+	_ = m.previewFor(p, 24, 20)
+
+	wantKey := previewpkg.CacheKeyForSession(p, 24, info.Size(), info.ModTime().UnixNano())
+	if _, ok := m.previewCache[wantKey]; !ok {
+		t.Fatalf("expected preview cache key %q not found; keys=%v", wantKey, maps.Keys(m.previewCache))
 	}
 }
 
