@@ -184,19 +184,6 @@ func takeDisplaySuffix(v string, width int) string {
 	return string(runes[start:])
 }
 
-func withEllipsis(v string, width int) string {
-	if width <= 0 {
-		return ""
-	}
-	if width <= 3 {
-		return truncateDisplay(v, width)
-	}
-	if runewidth.StringWidth(v)+3 <= width {
-		return v + "..."
-	}
-	return truncateDisplay(v, width-3) + "..."
-}
-
 func previewHostPath(host string, width int) string {
 	if width <= 0 || host == "" {
 		return host

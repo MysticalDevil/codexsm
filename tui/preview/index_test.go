@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestUpsertAndLoadIndexEntry(t *testing.T) {
@@ -136,5 +137,86 @@ func TestRewriteIndexRespectsCapAndByteBudget(t *testing.T) {
 	}
 	if _, ok := loaded["k-newest"]; !ok {
 		t.Fatalf("byte-budget phase expected newest entry kept")
+	}
+}
+
+func TestUpsertIndexWaitsForLock(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	indexPath := filepath.Join(dir, "preview.v1.jsonl")
+	lockPath := indexPath + ".lock"
+	if err := os.WriteFile(lockPath, []byte("lock"), 0o644); err != nil {
+		t.Fatalf("create lock file: %v", err)
+	}
+
+	go func() {
+		time.Sleep(120 * time.Millisecond)
+		_ = os.Remove(lockPath)
+	}()
+
+	rec := IndexRecord{
+		Key:           "k-lock",
+		Path:          "/tmp/k-lock",
+		Width:         16,
+		SizeBytes:     2,
+		UpdatedAtUnix: 3,
+		TouchedAtUnix: time.Now().UnixNano(),
+		Lines:         []string{"hello"},
+	}
+	if err := UpsertIndex(indexPath, 10, rec); err != nil {
+		t.Fatalf("UpsertIndex with delayed lock release: %v", err)
+	}
+
+	lines, ok, err := LoadIndexEntry(indexPath, rec.Key)
+	if err != nil {
+		t.Fatalf("LoadIndexEntry after upsert: %v", err)
+	}
+	if !ok || len(lines) != 1 || lines[0] != "hello" {
+		t.Fatalf("unexpected entry after lock wait: ok=%v lines=%#v", ok, lines)
+	}
+}
+
+func TestRewriteIndexTrimsOversizedOlderEntry(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	indexPath := filepath.Join(dir, "preview.v1.jsonl")
+
+	entries := map[string]IndexRecord{
+		"old": {
+			Key:           "old",
+			Path:          "/tmp/old",
+			Width:         32,
+			SizeBytes:     1,
+			UpdatedAtUnix: 1,
+			TouchedAtUnix: 1,
+			Lines:         []string{strings.Repeat("a", MaxIndexBytes)},
+		},
+		"new": {
+			Key:           "new",
+			Path:          "/tmp/new",
+			Width:         32,
+			SizeBytes:     1,
+			UpdatedAtUnix: 2,
+			TouchedAtUnix: 2,
+			Lines:         []string{"keep-me"},
+		},
+	}
+	if err := RewriteIndex(indexPath, entries, 10, MaxIndexBytes); err != nil {
+		t.Fatalf("RewriteIndex: %v", err)
+	}
+
+	lines, ok, err := LoadIndexEntry(indexPath, "new")
+	if err != nil {
+		t.Fatalf("LoadIndexEntry(new): %v", err)
+	}
+	if !ok || len(lines) != 1 || lines[0] != "keep-me" {
+		t.Fatalf("unexpected retained entry ok=%v lines=%#v", ok, lines)
+	}
+	if _, ok, err := LoadIndexEntry(indexPath, "old"); err != nil {
+		t.Fatalf("LoadIndexEntry(old): %v", err)
+	} else if ok {
+		t.Fatal("expected oversized old entry to be trimmed")
 	}
 }
