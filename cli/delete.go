@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/MysticalDevil/codexsm/audit"
 	"github.com/MysticalDevil/codexsm/config"
 	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/internal/ops"
@@ -87,13 +86,6 @@ func newDeleteCmd() *cobra.Command {
 			if !dryRun {
 				printDeletePreview(cmd, candidates, hard, mode, previewLimit)
 			}
-			batchID := ""
-			if len(candidates) > 0 {
-				batchID, err = runtimeAuditSink.NewBatchID()
-				if err != nil {
-					return err
-				}
-			}
 
 			if !dryRun && interactive && !yes && len(candidates) > 0 {
 				ok, err := interactiveConfirmDelete(cmd, len(candidates), hard)
@@ -119,32 +111,26 @@ func newDeleteCmd() *cobra.Command {
 				MaxBatchChanged: cmd.Flags().Changed("max-batch"),
 				RealDefault:     usecase.DefaultMaxBatchReal,
 				DryRunDefault:   usecase.DefaultMaxBatchDryRun,
+				LogFile:         logFile,
+				AuditSink:       runtimeAuditSink,
+				Now:             now,
 			})
+			if deleteErr == nil && out.LogError != nil {
+				deleteErr = out.LogError
+			}
 			summary := out.Summary
 
-			rec := audit.BuildActionRecord(
-				batchID,
-				now.UTC(),
-				summary.Action,
-				summary.Simulation,
-				sel,
-				candidates,
-				summary.AffectedBytes,
-				summary.Results,
-				summary.ErrorSummary,
-			)
-			logErr := runtimeAuditSink.WriteActionLog(logFile, rec)
-			if logErr != nil {
-				lg.Error("failed to write action log", "error", logErr, "log_file", logFile)
+			if out.LogError != nil {
+				lg.Error("failed to write action log", "error", out.LogError, "log_file", logFile)
 			}
 
-			if batchID != "" {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "batch_id=%s\n", batchID)
+			if out.BatchID != "" {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "batch_id=%s\n", out.BatchID)
 			}
 			printDeleteSummary(cmd, summary)
 
-			if logErr != nil {
-				return WithExitCode(fmt.Errorf("delete completed but failed to write log: %w", logErr), 3)
+			if out.LogError != nil {
+				return WithExitCode(fmt.Errorf("delete completed but failed to write log: %w", out.LogError), 3)
 			}
 			if deleteErr != nil {
 				lg.Warn("delete validation or execution returned error", "error", deleteErr)

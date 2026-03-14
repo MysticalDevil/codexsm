@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/MysticalDevil/codexsm/audit"
+	"github.com/MysticalDevil/codexsm/usecase"
 )
 
 type clock interface {
@@ -14,11 +15,6 @@ type systemClock struct{}
 
 func (systemClock) Now() time.Time {
 	return time.Now()
-}
-
-type auditSink interface {
-	NewBatchID() (string, error)
-	WriteActionLog(logFile string, rec audit.ActionRecord) error
 }
 
 type defaultAuditSink struct{}
@@ -32,4 +28,4 @@ func (defaultAuditSink) WriteActionLog(logFile string, rec audit.ActionRecord) e
 }
 
 var runtimeClock clock = systemClock{}
-var runtimeAuditSink auditSink = defaultAuditSink{}
+var runtimeAuditSink usecase.AuditSink = defaultAuditSink{}

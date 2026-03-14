@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MysticalDevil/codexsm/audit"
 	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/internal/ops"
 	"github.com/MysticalDevil/codexsm/session"
@@ -90,13 +89,6 @@ func newRestoreCmd() *cobra.Command {
 			if !dryRun {
 				printRestorePreview(cmd, candidates, mode, previewLimit)
 			}
-			opBatchID := ""
-			if len(candidates) > 0 {
-				opBatchID, err = runtimeAuditSink.NewBatchID()
-				if err != nil {
-					return err
-				}
-			}
 
 			if !dryRun && interactive && !yes && len(candidates) > 0 {
 				ok, err := interactiveConfirmRestore(cmd, len(candidates))
@@ -122,35 +114,28 @@ func newRestoreCmd() *cobra.Command {
 				DryRunDefault:      usecase.DefaultMaxBatchDryRun,
 				SessionsRoot:       sessionsRoot,
 				TrashSessionsRoot:  trashSessionsRoot,
+				LogFile:            logFile,
+				AuditSink:          runtimeAuditSink,
+				Now:                now,
 			})
+			if runErr == nil && out.LogError != nil {
+				runErr = out.LogError
+			}
 			summary := out.Summary
-
-			rec := audit.BuildActionRecord(
-				opBatchID,
-				now.UTC(),
-				summary.Action,
-				summary.Simulation,
-				sel,
-				candidates,
-				summary.AffectedBytes,
-				summary.Results,
-				summary.ErrorSummary,
-			)
-			logErr := runtimeAuditSink.WriteActionLog(logFile, rec)
-			if logErr != nil {
-				lg.Error("failed to write action log", "error", logErr, "log_file", logFile)
+			if out.LogError != nil {
+				lg.Error("failed to write action log", "error", out.LogError, "log_file", logFile)
 			}
 
 			if batchID != "" {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "rollback_from_batch_id=%s\n", batchID)
 			}
-			if opBatchID != "" {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "batch_id=%s\n", opBatchID)
+			if out.BatchID != "" {
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "batch_id=%s\n", out.BatchID)
 			}
 			printRestoreSummary(cmd, summary)
 
-			if logErr != nil {
-				return WithExitCode(fmt.Errorf("restore completed but failed to write log: %w", logErr), 3)
+			if out.LogError != nil {
+				return WithExitCode(fmt.Errorf("restore completed but failed to write log: %w", out.LogError), 3)
 			}
 			if runErr != nil {
 				lg.Warn("restore validation or execution returned error", "error", runErr)
