@@ -1,4 +1,4 @@
-package layout
+package tui
 
 import "testing"
 

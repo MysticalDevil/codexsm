@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+
 	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/session"
-	"github.com/charmbracelet/lipgloss"
 )
 
 func (m tuiModel) View() string {
@@ -31,7 +32,10 @@ func (m tuiModel) View() string {
 	if IsTooSmall(m.width, m.height) {
 		msg := fmt.Sprintf(
 			"Terminal too small.\nRequired at least: %dx%d\nCurrent: %dx%d\nResize terminal and try again.\nPress q to quit.",
-			MinWidth+1, MinHeight, m.width, m.height,
+			MinWidth+1,
+			MinHeight,
+			m.width,
+			m.height,
 		)
 		warn := lipgloss.NewStyle().
 			Width(max(32, metrics.TotalW-2)).
@@ -92,7 +96,12 @@ func (m tuiModel) View() string {
 		m.appendSelectedSessionPreview(&previewLines, &infoLines, selected, rightW)
 	} else {
 		previewLines = append(previewLines, " Select a session node")
-		infoLines = append(infoLines, lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("tag_danger"))).Render("No session selected"))
+		infoLines = append(
+			infoLines,
+			lipgloss.NewStyle().
+				Foreground(lipgloss.Color(m.colorHex("tag_danger"))).
+				Render("No session selected"),
+		)
 	}
 
 	leftBorder := borderColor
@@ -121,9 +130,7 @@ func (m tuiModel) View() string {
 		infoBorder = borderFocusColor
 	}
 	infoInnerH := max(1, metrics.InfoOuterH-infoBase.GetVerticalFrameSize())
-	if infoInnerH > 3 {
-		infoInnerH = 3
-	}
+	infoInnerH = min(infoInnerH, 3)
 	infoPane := infoBase.
 		Width(rightW).
 		Height(infoInnerH).
@@ -131,7 +138,12 @@ func (m tuiModel) View() string {
 		Render(strings.Join(infoLines[:min(len(infoLines), 3)], "\n"))
 
 	rightBlock := lipgloss.JoinVertical(lipgloss.Left, infoPane, previewPane)
-	mainArea := lipgloss.JoinHorizontal(lipgloss.Top, leftPane, strings.Repeat(" ", metrics.GapW), rightBlock)
+	mainArea := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		leftPane,
+		strings.Repeat(" ", metrics.GapW),
+		rightBlock,
+	)
 	mainOuterW := lipgloss.Width(mainArea)
 	mainArea = lipgloss.NewStyle().Width(mainOuterW).MaxWidth(mainOuterW).Render(mainArea)
 	keybar := renderKeysBar(mainOuterW)
@@ -155,24 +167,46 @@ func (m tuiModel) buildPanelLines(rightW int, statusColor string) ([]string, []s
 	} else {
 		rightTitleText += " *"
 	}
-	leftTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("title_tree"))).Render(leftTitleText)
-	rightTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("title_preview"))).Render(rightTitleText)
+	leftTitle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(m.colorHex("title_tree"))).
+		Render(leftTitleText)
+	rightTitle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(m.colorHex("title_preview"))).
+		Render(rightTitleText)
 
 	leftLines := make([]string, 0, m.visibleRows()+1)
 	previewLines := make([]string, 0, m.visibleRows()+1)
 	infoLines := make([]string, 0, 4)
 	leftLines = append(leftLines, leftTitle)
 	previewLines = append(previewLines, rightTitle)
-	previewLines = append(previewLines, lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render(" "+truncateDisplay(m.status, max(8, rightW-2))))
+	previewLines = append(
+		previewLines,
+		lipgloss.NewStyle().
+			Foreground(lipgloss.Color(statusColor)).
+			Render(" "+truncateDisplay(m.status, max(8, rightW-2))),
+	)
 	highRisk, mediumRisk := riskCounts(m.sessions)
-	riskLine := fmt.Sprintf(" risk=%d (high=%d medium=%d) ", highRisk+mediumRisk, highRisk, mediumRisk)
+	riskLine := fmt.Sprintf(
+		" risk=%d (high=%d medium=%d) ",
+		highRisk+mediumRisk,
+		highRisk,
+		mediumRisk,
+	)
 	riskColor := m.colorHex("tag_success")
 	if highRisk > 0 {
 		riskColor = m.colorHex("tag_error")
 	} else if mediumRisk > 0 {
 		riskColor = m.colorHex("tag_danger")
 	}
-	previewLines = append(previewLines, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(riskColor)).Render(" "+truncateDisplay(riskLine, max(8, rightW-2))))
+	previewLines = append(
+		previewLines,
+		lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(riskColor)).
+			Render(" "+truncateDisplay(riskLine, max(8, rightW-2))),
+	)
 	return leftLines, previewLines, infoLines
 }
 
@@ -184,7 +218,10 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 	if m.focus == focusTree {
 		leftTitleText += " *"
 	}
-	leftTitle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("title_tree"))).Render(leftTitleText)
+	leftTitle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(m.colorHex("title_tree"))).
+		Render(leftTitleText)
 	leftLines := make([]string, 0, m.visibleRows()+1)
 	leftLines = append(leftLines, leftTitle)
 
@@ -201,13 +238,18 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 		if i+1 >= len(m.tree) || m.tree[i+1].Kind == treeItemMonth {
 			connector = "└─"
 		}
-		connectorPart := lipgloss.NewStyle().Foreground(lipgloss.Color(statusColor)).Render("  " + connector + " ")
+		connectorPart := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(statusColor)).
+			Render("  " + connector + " ")
 		idWidth := max(4, leftW-10)
 		idText := truncateDisplay(item.Label, idWidth)
 		healthSymbol := "●"
 		healthColor := m.colorHex("status")
 		if item.Index >= 0 && item.Index < len(m.sessions) {
-			symbol, color, nonHealthy := m.treeHealthVisual(m.sessions[item.Index].Health, item.HostMissing)
+			symbol, color, nonHealthy := m.treeHealthVisual(
+				m.sessions[item.Index].Health,
+				item.HostMissing,
+			)
 			healthSymbol = symbol
 			healthColor = color
 			if nonHealthy {
@@ -227,10 +269,25 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 					Foreground(lipgloss.Color(m.colorHex("selected_fg"))).
 					Background(lipgloss.Color(m.colorHex("selected_bg"))).
 					Bold(true).Render(idText)
-				leftLines = append(leftLines, lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("cursor_active"))).Render("▌")+" "+connectorPart+healthMark+" "+idText)
+				leftLines = append(
+					leftLines,
+					lipgloss.NewStyle().
+						Foreground(lipgloss.Color(m.colorHex("cursor_active"))).
+						Render("▌")+
+						" "+connectorPart+healthMark+" "+idText,
+				)
 			} else {
-				idText = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).Render(idText)
-				leftLines = append(leftLines, lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).Render("▏")+" "+connectorPart+healthMark+" "+idText)
+				idText = lipgloss.NewStyle().
+					Bold(true).
+					Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).
+					Render(idText)
+				leftLines = append(
+					leftLines,
+					lipgloss.NewStyle().
+						Foreground(lipgloss.Color(m.colorHex("cursor_inactive"))).
+						Render("▏")+
+						" "+connectorPart+healthMark+" "+idText,
+				)
 			}
 		} else {
 			leftLines = append(leftLines, "  "+connectorPart+healthMark+" "+idText)
@@ -239,7 +296,11 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 	return leftLines
 }
 
-func (m *tuiModel) appendSelectedSessionPreview(previewLines, infoLines *[]string, selected session.Session, rightW int) {
+func (m *tuiModel) appendSelectedSessionPreview(
+	previewLines, infoLines *[]string,
+	selected session.Session,
+	rightW int,
+) {
 	previewOuterH := Compute(m.width, m.height).PreviewOuterH
 	rightBase := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(0, 1)
 	previewInnerH := max(2, previewOuterH-rightBase.GetVerticalFrameSize())
@@ -262,23 +323,39 @@ func (m *tuiModel) appendSelectedSessionPreview(previewLines, infoLines *[]strin
 	}
 	start := m.previewOffset
 	end := start + previewContentHeight
-	if end > len(preview) {
-		end = len(preview)
-	}
+	end = min(end, len(preview))
 
 	scrollInfo := fmt.Sprintf(" scroll %d-%d/%d ", start+1, end, len(preview))
 	scrollStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("scroll")))
 	barStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(m.colorHex("bar")))
 	if m.focus == focusPreview {
-		scrollStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("scroll_active")))
-		barStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("bar_active")))
+		scrollStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(m.colorHex("scroll_active")))
+		barStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(m.colorHex("bar_active")))
 	}
-	*previewLines = append(*previewLines, scrollStyle.Render(truncateDisplay(scrollInfo, previewTextWidth)))
-	*previewLines = append(*previewLines, barStyle.Render(" "+buildPreviewScrollBar(start, end, len(preview), max(10, previewTextWidth-2))))
+	*previewLines = append(
+		*previewLines,
+		scrollStyle.Render(truncateDisplay(scrollInfo, previewTextWidth)),
+	)
+	*previewLines = append(
+		*previewLines,
+		barStyle.Render(
+			" "+buildPreviewScrollBar(start, end, len(preview), max(10, previewTextWidth-2)),
+		),
+	)
 	*previewLines = append(*previewLines, preview[start:end]...)
 
 	h, v := m.detailRows(selected, rightW)
-	*infoLines = append(*infoLines, lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(m.colorHex("info_header"))).Render(h))
+	*infoLines = append(
+		*infoLines,
+		lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(m.colorHex("info_header"))).
+			Render(h),
+	)
 	*infoLines = append(*infoLines, v)
 }
 

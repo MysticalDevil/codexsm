@@ -1,4 +1,4 @@
-package layout
+package tui
 
 const (
 	// MinWidth is the minimal terminal width required by TUI.
