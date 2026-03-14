@@ -8,7 +8,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/MysticalDevil/codexsm/internal/tui/layout"
 	"github.com/MysticalDevil/codexsm/session"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -90,7 +89,7 @@ func (m *tuiModel) ensurePreviewRequest() tea.Cmd {
 }
 
 func (m *tuiModel) currentPreviewRequestDims() (int, int) {
-	metrics := layout.Compute(m.width, m.height)
+	metrics := Compute(m.width, m.height)
 	rightBase := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(0, 1)
 	rightW := max(12, metrics.RightOuterW-rightBase.GetHorizontalFrameSize())
 	previewInnerH := max(2, metrics.PreviewOuterH-rightBase.GetVerticalFrameSize())

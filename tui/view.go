@@ -5,13 +5,12 @@ import (
 	"strings"
 
 	"github.com/MysticalDevil/codexsm/internal/core"
-	"github.com/MysticalDevil/codexsm/internal/tui/layout"
 	"github.com/MysticalDevil/codexsm/session"
 	"github.com/charmbracelet/lipgloss"
 )
 
 func (m tuiModel) View() string {
-	metrics := layout.Compute(m.width, m.height)
+	metrics := Compute(m.width, m.height)
 	borderColor := m.colorHex("border")
 	borderFocusColor := m.colorHex("border_focus")
 	fgColor := m.colorHex("fg")
@@ -29,10 +28,10 @@ func (m tuiModel) View() string {
 		return lipgloss.NewStyle().Width(outerW).MaxWidth(outerW).Render(bar)
 	}
 
-	if layout.IsTooSmall(m.width, m.height) {
+	if IsTooSmall(m.width, m.height) {
 		msg := fmt.Sprintf(
 			"Terminal too small.\nRequired at least: %dx%d\nCurrent: %dx%d\nResize terminal and try again.\nPress q to quit.",
-			layout.MinWidth+1, layout.MinHeight, m.width, m.height,
+			MinWidth+1, MinHeight, m.width, m.height,
 		)
 		warn := lipgloss.NewStyle().
 			Width(max(32, metrics.TotalW-2)).
@@ -241,7 +240,7 @@ func (m tuiModel) renderTreeLines(leftW int, statusColor string) []string {
 }
 
 func (m *tuiModel) appendSelectedSessionPreview(previewLines, infoLines *[]string, selected session.Session, rightW int) {
-	previewOuterH := layout.Compute(m.width, m.height).PreviewOuterH
+	previewOuterH := Compute(m.width, m.height).PreviewOuterH
 	rightBase := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Padding(0, 1)
 	previewInnerH := max(2, previewOuterH-rightBase.GetVerticalFrameSize())
 	// PREVIEW pane reserves 5 fixed rows: title/status/risk/scroll/bar.

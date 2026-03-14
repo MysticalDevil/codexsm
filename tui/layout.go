@@ -1,5 +1,4 @@
-// Package layout computes terminal layout metrics for codexsm TUI rendering.
-package layout
+package tui
 
 const (
 	// MinWidth is the minimal terminal width required by TUI.

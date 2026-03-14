@@ -14,7 +14,6 @@ import (
 
 	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
-	"github.com/MysticalDevil/codexsm/internal/tui/layout"
 	"github.com/MysticalDevil/codexsm/session"
 	"github.com/MysticalDevil/codexsm/usecase"
 )
@@ -71,7 +70,7 @@ func TestTUIViewMinSizeWarning(t *testing.T) {
 	if strings.Contains(out, "[KEYS]") {
 		t.Fatalf("did not expect keybar in min-size warning, got: %q", out)
 	}
-	maxWidth := layout.Compute(m.width, m.height).TotalW
+	maxWidth := Compute(m.width, m.height).TotalW
 	for _, line := range strings.Split(stripANSIForTest(out), "\n") {
 		if got := runewidth.StringWidth(line); got > maxWidth {
 			t.Fatalf("min-size warning line exceeds width=%d, got=%d line=%q", maxWidth, got, line)

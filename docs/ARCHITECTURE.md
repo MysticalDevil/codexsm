@@ -94,7 +94,7 @@ External/runtime:
 - `config/*` for path and app config resolution
 - `internal/ops/*` for shared operation helpers (`preview mode`, interactive confirms)
 - `util/file.go` for move/copy file helpers
-- `internal/tui/layout/*` for TUI layout metrics
+- `tui/layout.go` for TUI layout metrics
 
 5. Test support:
 - `internal/testsupport/*` fixture sandbox helpers
