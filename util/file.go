@@ -1,5 +1,4 @@
-// Package fileutil provides small, reusable filesystem mutation helpers.
-package fileutil
+package util
 
 import (
 	"errors"

@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/MysticalDevil/codexsm/internal/core"
-	"github.com/MysticalDevil/codexsm/internal/fileutil"
 	"github.com/MysticalDevil/codexsm/internal/ops"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/session"
 	"github.com/MysticalDevil/codexsm/usecase"
+	"github.com/MysticalDevil/codexsm/util"
 	"github.com/spf13/cobra"
 )
 
@@ -272,7 +272,7 @@ func TestRestoreMoveFileAndCopy(t *testing.T) {
 	if err := os.WriteFile(src, []byte("abc"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := fileutil.MoveFile(src, dst); err != nil {
+	if err := util.MoveFile(src, dst); err != nil {
 		t.Fatalf("MoveFile: %v", err)
 	}
 	if _, err := os.Stat(src); !errors.Is(err, os.ErrNotExist) {
@@ -288,7 +288,7 @@ func TestRestoreMoveFileAndCopy(t *testing.T) {
 	if err := os.WriteFile(src2, []byte("xyz"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := fileutil.CopyFile(src2, dst2); err != nil {
+	if err := util.CopyFile(src2, dst2); err != nil {
 		t.Fatalf("CopyFile: %v", err)
 	}
 	data2, err := os.ReadFile(dst2)

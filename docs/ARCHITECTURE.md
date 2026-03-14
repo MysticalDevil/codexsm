@@ -93,7 +93,7 @@ External/runtime:
 - `audit/*` for action logs
 - `config/*` for path and app config resolution
 - `internal/ops/*` for shared operation helpers (`preview mode`, interactive confirms)
-- `internal/fileutil/*` for move/copy file helpers
+- `util/file.go` for move/copy file helpers
 - `internal/tui/layout/*` for TUI layout metrics
 
 5. Test support:

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/MysticalDevil/codexsm/internal/fileutil"
+	"github.com/MysticalDevil/codexsm/util"
 )
 
 // RestoreOptions controls restore behavior.
@@ -103,7 +103,7 @@ func RestoreSessions(candidates []Session, sel Selector, opts RestoreOptions) (R
 			})
 			continue
 		}
-		if err := fileutil.MoveFile(s.Path, dst); err != nil {
+		if err := util.MoveFile(s.Path, dst); err != nil {
 			summary.Failed++
 			summary.Results = append(summary.Results, DeleteResult{
 				SessionID: s.SessionID,
