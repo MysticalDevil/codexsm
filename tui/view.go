@@ -730,13 +730,34 @@ func (m tuiModel) renderBottomLine(width int) string {
 		return renderKeysLine(width, m.theme)
 	}
 
-	target := core.ShortID(strings.TrimSpace(m.pendingID))
-	if target == "" {
-		target = "-"
-	}
+	plain := ""
 
-	action := strings.ToUpper(strings.TrimSpace(m.pendingAction))
-	plain := fmt.Sprintf("PENDING %s %s | Press Y to confirm, N to cancel", action, target)
+	if m.pendingAction == "delete-group" {
+		group := truncateDisplay(strings.TrimSpace(m.pendingGroup), max(8, width/3))
+		if group == "" {
+			group = "-"
+		}
+
+		step := m.pendingStep
+		if step <= 0 {
+			step = 1
+		}
+
+		plain = fmt.Sprintf(
+			"PENDING DELETE GROUP %d/3 | %s | sessions=%d | Press Y to confirm, N to cancel",
+			step,
+			group,
+			m.pendingCount,
+		)
+	} else {
+		target := core.ShortID(strings.TrimSpace(m.pendingID))
+		if target == "" {
+			target = "-"
+		}
+
+		action := strings.ToUpper(strings.TrimSpace(m.pendingAction))
+		plain = fmt.Sprintf("PENDING %s %s | Press Y to confirm, N to cancel", action, target)
+	}
 
 	padded := truncateDisplay(plain, width)
 	if w := lipgloss.Width(padded); w < width {

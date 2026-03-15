@@ -25,20 +25,59 @@ func (m *tuiModel) requestDelete() {
 		return
 	}
 
+	if !m.dryRun && !m.confirm {
+		m.status = "Real delete requires --confirm."
+		return
+	}
+
+	if len(m.tree) == 0 || m.cursor < 0 || m.cursor >= len(m.tree) {
+		m.status = "No session selected."
+		return
+	}
+
+	item := m.tree[m.cursor]
+	if item.Kind == treeItemMonth {
+		group := strings.TrimSpace(item.Month)
+		if group == "" {
+			m.status = "No group selected."
+			return
+		}
+
+		candidates := m.deleteCandidatesForGroup(group)
+		if len(candidates) == 0 {
+			m.status = "No sessions matched selected group."
+			return
+		}
+
+		if m.dryRun {
+			m.runDeleteGroup(group, candidates)
+			return
+		}
+
+		m.pendingAction = "delete-group"
+		m.pendingStep = 1
+		m.pendingID = ""
+		m.pendingHost = ""
+		m.pendingGroup = group
+		m.pendingCount = len(candidates)
+		m.status = m.groupDeleteConfirmStatus()
+
+		return
+	}
+
 	selected, ok := m.selectedSession()
 	if !ok {
 		m.status = "No session selected."
 		return
 	}
 
-	if !m.dryRun && !m.confirm {
-		m.status = "Real delete requires --confirm."
-		return
-	}
-
 	if !m.dryRun && !m.yes {
 		m.pendingAction = "delete"
+		m.pendingStep = 1
 		m.pendingID = selected.SessionID
+		m.pendingHost = ""
+		m.pendingGroup = ""
+		m.pendingCount = 1
 		m.status = fmt.Sprintf("Confirm delete %s: press y to continue, n to cancel.", core.ShortID(selected.SessionID))
 
 		return
@@ -83,8 +122,11 @@ func (m *tuiModel) requestHostMigrate() {
 
 	if !m.dryRun && !m.yes {
 		m.pendingAction = "migrate-host"
+		m.pendingStep = 1
 		m.pendingID = selected.SessionID
 		m.pendingHost = host
+		m.pendingGroup = ""
+		m.pendingCount = len(candidates)
 		m.status = fmt.Sprintf("Confirm migrate host %s (sessions=%d): press y to continue, n to cancel.", truncateDisplay(host, 48), len(candidates))
 
 		return
@@ -109,10 +151,8 @@ func (m *tuiModel) runDelete(selected session.Session) {
 		RealDefault:     usecase.DefaultMaxBatchTUIReal,
 		DryRunDefault:   usecase.DefaultMaxBatchTUIDryRun,
 	})
-	m.pendingAction = ""
-	m.pendingID = ""
+	m.clearPendingActionState()
 
-	m.pendingHost = ""
 	if err != nil {
 		m.status = "delete failed: " + err.Error()
 		return
@@ -129,6 +169,89 @@ func (m *tuiModel) runDelete(selected session.Session) {
 	)
 	if !m.dryRun && sum.Succeeded > 0 {
 		m.removeSelectedSession()
+	}
+}
+
+func (m *tuiModel) deleteCandidatesForGroup(group string) []session.Session {
+	group = strings.TrimSpace(group)
+	if group == "" {
+		return nil
+	}
+
+	out := make([]session.Session, 0, len(m.sessions))
+
+	mode := strings.ToLower(strings.TrimSpace(m.groupBy))
+	if mode == "" {
+		mode = "host"
+	}
+
+	for _, s := range m.sessions {
+		if m.groupKeyForSession(s, mode) == group {
+			out = append(out, s)
+		}
+	}
+
+	return out
+}
+
+func (m *tuiModel) deleteSelectorForGroup(group string, candidates []session.Session) session.Selector {
+	switch strings.ToLower(strings.TrimSpace(m.groupBy)) {
+	case "host":
+		return session.Selector{HostContains: group}
+	case "day":
+		parts := strings.Split(group, "-")
+		if len(parts) == 3 {
+			return session.Selector{PathContains: filepath.Join(parts[0], parts[1], parts[2])}
+		}
+	case "month":
+		parts := strings.Split(group, "-")
+		if len(parts) == 2 {
+			return session.Selector{PathContains: filepath.Join(parts[0], parts[1])}
+		}
+	}
+
+	if len(candidates) > 0 {
+		return session.Selector{PathContains: filepath.Dir(candidates[0].Path)}
+	}
+
+	return session.Selector{}
+}
+
+func (m *tuiModel) runDeleteGroup(group string, candidates []session.Session) {
+	sel := m.deleteSelectorForGroup(group, candidates)
+	out, err := usecase.RunDeleteAction(usecase.DeleteActionInput{
+		Sessions:        candidates,
+		Selector:        sel,
+		DryRun:          m.dryRun,
+		Confirm:         m.confirm,
+		Yes:             true,
+		Hard:            m.hardDelete,
+		SessionsRoot:    m.sessionsRoot,
+		TrashRoot:       m.trashRoot,
+		MaxBatch:        max(1, m.maxBatch),
+		MaxBatchChanged: m.maxBatchChanged,
+		RealDefault:     usecase.DefaultMaxBatchTUIReal,
+		DryRunDefault:   usecase.DefaultMaxBatchTUIDryRun,
+	})
+	m.clearPendingActionState()
+
+	if err != nil {
+		m.status = "delete-group failed: " + err.Error()
+		return
+	}
+
+	sum := out.Summary
+	m.persistActionLog(sum.Action, sum.Simulation, sel, candidates, sum.AffectedBytes, sum.Results, sum.ErrorSummary)
+
+	m.status = fmt.Sprintf(
+		"delete-group: action=%s matched=%d group=%s affected=%s",
+		sum.Action,
+		sum.MatchedCount,
+		truncateDisplay(group, 32),
+		core.FormatBytesIEC(sum.AffectedBytes),
+	)
+	if !m.dryRun && sum.Succeeded > 0 {
+		m.removeSessionsByID(candidates)
 	}
 }
 
@@ -164,10 +287,8 @@ func (m *tuiModel) runHostMigrate(host string, candidates []session.Session) {
 		RealDefault:     usecase.DefaultMaxBatchTUIReal,
 		DryRunDefault:   usecase.DefaultMaxBatchTUIDryRun,
 	})
-	m.pendingAction = ""
-	m.pendingID = ""
+	m.clearPendingActionState()
 
-	m.pendingHost = ""
 	if err != nil {
 		m.status = "migrate-host failed: " + err.Error()
 		return
@@ -206,7 +327,11 @@ func (m *tuiModel) requestRestore() {
 
 	if !m.dryRun && !m.yes {
 		m.pendingAction = "restore"
+		m.pendingStep = 1
 		m.pendingID = selected.SessionID
+		m.pendingHost = ""
+		m.pendingGroup = ""
+		m.pendingCount = 1
 		m.status = fmt.Sprintf("Confirm restore %s: press y to continue, n to cancel.", core.ShortID(selected.SessionID))
 
 		return
@@ -230,10 +355,8 @@ func (m *tuiModel) runRestore(selected session.Session) {
 		RealDefault:       usecase.DefaultMaxBatchTUIReal,
 		DryRunDefault:     usecase.DefaultMaxBatchTUIDryRun,
 	})
-	m.pendingAction = ""
-	m.pendingID = ""
+	m.clearPendingActionState()
 
-	m.pendingHost = ""
 	if err != nil {
 		m.status = "restore failed: " + err.Error()
 		return
@@ -258,10 +381,39 @@ func (m *tuiModel) commitPendingAction() {
 		return
 	}
 
+	if m.pendingAction == "delete-group" {
+		group, ok := m.currentCursorGroup()
+		if !ok || group != m.pendingGroup {
+			m.clearPendingActionState()
+			m.status = "Pending action cancelled: group changed."
+
+			return
+		}
+
+		candidates := m.deleteCandidatesForGroup(group)
+		if len(candidates) == 0 {
+			m.clearPendingActionState()
+			m.status = "Pending action cancelled: group is empty."
+
+			return
+		}
+
+		m.pendingCount = len(candidates)
+		if m.pendingStep < 3 {
+			m.pendingStep++
+			m.status = m.groupDeleteConfirmStatus()
+
+			return
+		}
+
+		m.runDeleteGroup(group, candidates)
+
+		return
+	}
+
 	selected, ok := m.selectedSession()
 	if !ok || selected.SessionID != m.pendingID {
-		m.pendingAction = ""
-		m.pendingID = ""
+		m.clearPendingActionState()
 		m.status = "Pending action cancelled: selection changed."
 
 		return
@@ -273,8 +425,7 @@ func (m *tuiModel) commitPendingAction() {
 	case "migrate-host":
 		host := strings.TrimSpace(m.pendingHost)
 		if host == "" {
-			m.pendingAction = ""
-			m.pendingID = ""
+			m.clearPendingActionState()
 			m.status = "Pending action cancelled: host missing."
 
 			return
@@ -284,9 +435,7 @@ func (m *tuiModel) commitPendingAction() {
 	case "restore":
 		m.runRestore(selected)
 	default:
-		m.pendingAction = ""
-		m.pendingID = ""
-		m.pendingHost = ""
+		m.clearPendingActionState()
 	}
 }
 
@@ -295,10 +444,33 @@ func (m *tuiModel) cancelPendingAction() {
 		return
 	}
 
+	m.clearPendingActionState()
+	m.status = "Pending action cancelled."
+}
+
+func (m *tuiModel) clearPendingActionState() {
 	m.pendingAction = ""
+	m.pendingStep = 0
 	m.pendingID = ""
 	m.pendingHost = ""
-	m.status = "Pending action cancelled."
+	m.pendingGroup = ""
+	m.pendingCount = 0
+}
+
+func (m *tuiModel) groupDeleteConfirmStatus() string {
+	group := truncateDisplay(strings.TrimSpace(m.pendingGroup), 48)
+	if group == "" {
+		group = "-"
+	}
+
+	switch m.pendingStep {
+	case 1:
+		return fmt.Sprintf("Confirm delete group %s (sessions=%d) [1/3]: press y to continue, n to cancel.", group, m.pendingCount)
+	case 2:
+		return fmt.Sprintf("Delete entire group %s (sessions=%d) [2/3]: press y to continue, n to cancel.", group, m.pendingCount)
+	default:
+		return fmt.Sprintf("Final confirm delete group %s (sessions=%d) [3/3]: press y to continue, n to cancel.", group, m.pendingCount)
+	}
 }
 
 func (m *tuiModel) persistActionLog(action string, simulation bool, sel session.Selector, items []session.Session, affected int64, results []session.DeleteResult, errSummary string) {

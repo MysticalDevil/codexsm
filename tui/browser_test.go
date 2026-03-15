@@ -21,10 +21,21 @@ import (
 	"github.com/MysticalDevil/codexsm/usecase"
 )
 
-var ansiSeqRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+var (
+	ansiSeqRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	widthCond = runewidth.NewCondition()
+)
+
+func init() {
+	widthCond.EastAsianWidth = false
+}
 
 func stripANSIForTest(s string) string {
 	return ansiSeqRe.ReplaceAllString(s, "")
+}
+
+func displayWidthForTest(s string) int {
+	return widthCond.StringWidth(s)
 }
 
 func TestTUIHandleKeySwitchAndScroll(t *testing.T) {
@@ -84,7 +95,7 @@ func TestTUIViewMinSizeWarning(t *testing.T) {
 
 	maxWidth := Compute(m.width, m.height).TotalW
 	for _, line := range strings.Split(stripANSIForTest(out), "\n") {
-		if got := runewidth.StringWidth(line); got > maxWidth {
+		if got := displayWidthForTest(line); got > maxWidth {
 			t.Fatalf("min-size warning line exceeds width=%d, got=%d line=%q", maxWidth, got, line)
 		}
 	}
@@ -115,7 +126,7 @@ func TestTUIViewCompactModeAtMinimumWidth(t *testing.T) {
 
 	maxWidth := Compute(m.width, m.height).TotalW
 	for _, line := range strings.Split(out, "\n") {
-		if got := runewidth.StringWidth(line); got > maxWidth {
+		if got := displayWidthForTest(line); got > maxWidth {
 			t.Fatalf("compact view line exceeds width=%d, got=%d line=%q", maxWidth, got, line)
 		}
 	}
@@ -156,7 +167,7 @@ func TestTUIViewUltraModeAtNarrowWidth(t *testing.T) {
 
 	maxWidth := Compute(m.width, m.height).TotalW
 	for _, line := range strings.Split(out, "\n") {
-		if got := runewidth.StringWidth(line); got > maxWidth {
+		if got := displayWidthForTest(line); got > maxWidth {
 			t.Fatalf("ultra view line exceeds width=%d, got=%d line=%q", maxWidth, got, line)
 		}
 	}
@@ -197,13 +208,13 @@ func TestWrapAndTruncateDisplayWidth(t *testing.T) {
 
 	lines := wrapText(v, 12)
 	for _, line := range lines {
-		if got := runewidth.StringWidth(line); got > 12 {
+		if got := displayWidthForTest(line); got > 12 {
 			t.Fatalf("wrapped line exceeds width: %q width=%d", line, got)
 		}
 	}
 
 	tr := truncateDisplay(v, 10)
-	if got := runewidth.StringWidth(tr); got > 10 {
+	if got := displayWidthForTest(tr); got > 10 {
 		t.Fatalf("truncated text exceeds width: %q width=%d", tr, got)
 	}
 }
@@ -358,7 +369,7 @@ func TestPreviewForLineWidthBound(t *testing.T) {
 
 					out := m.previewFor(p, width, 20)
 					for _, line := range out {
-						if got := runewidth.StringWidth(stripANSIForTest(line)); got > width {
+						if got := displayWidthForTest(stripANSIForTest(line)); got > width {
 							t.Fatalf("preview line exceeds width=%d, got=%d line=%q", width, got, line)
 						}
 					}
@@ -595,7 +606,7 @@ func TestPreviewHostPath(t *testing.T) {
 				t.Fatal("previewHostPath returned empty")
 			}
 
-			if w := runewidth.StringWidth(got); w > tc.width {
+			if w := displayWidthForTest(got); w > tc.width {
 				t.Fatalf("width overflow: got=%q width=%d limit=%d", got, w, tc.width)
 			}
 		})
@@ -606,7 +617,7 @@ func TestTruncateMiddleDisplay(t *testing.T) {
 	v := "/very/long/path/to/project/codex-session-manager"
 
 	got := truncateMiddleDisplay(v, 20)
-	if w := runewidth.StringWidth(got); w > 20 {
+	if w := displayWidthForTest(got); w > 20 {
 		t.Fatalf("truncateMiddleDisplay overflow: %q width=%d", got, w)
 	}
 
@@ -617,7 +628,7 @@ func TestTruncateMiddleDisplay(t *testing.T) {
 
 func TestRenderKeysLine(t *testing.T) {
 	short := renderKeysLine(24, tuiTheme{Name: "tokyonight", Colors: cloneColorMap(builtinThemes["tokyonight"])})
-	if w := runewidth.StringWidth(stripANSIForTest(short)); w > 24 {
+	if w := displayWidthForTest(stripANSIForTest(short)); w > 24 {
 		t.Fatalf("short keys line overflow: width=%d", w)
 	}
 
@@ -645,7 +656,7 @@ func TestRenderKeysLineUsesAdaptiveVariants(t *testing.T) {
 
 	for _, width := range []int{135, 136, 137, 138} {
 		line := stripANSIForTest(renderKeysLine(width, theme))
-		if got := runewidth.StringWidth(line); got > width {
+		if got := displayWidthForTest(line); got > width {
 			t.Fatalf("adaptive keys overflow at width=%d: got=%d line=%q", width, got, line)
 		}
 	}
@@ -905,11 +916,11 @@ func TestTUIViewAndHelpersCoverage(t *testing.T) {
 		t.Fatal("empty preview scroll bar")
 	}
 
-	if got := fitCell("abc", 8); runewidth.StringWidth(got) != 8 {
+	if got := fitCell("abc", 8); displayWidthForTest(got) != 8 {
 		t.Fatalf("fitCell width unexpected: %q", got)
 	}
 
-	if got := fitCellMiddle("/very/long/path/to/project", 12); runewidth.StringWidth(got) != 12 {
+	if got := fitCellMiddle("/very/long/path/to/project", 12); displayWidthForTest(got) != 12 {
 		t.Fatalf("fitCellMiddle width unexpected: %q", got)
 	}
 
@@ -964,15 +975,15 @@ func TestTUIViewKeysBarWidthMatchesMainArea(t *testing.T) {
 
 	mainWidth := 0
 	for i := 0; i < keysIdx-1; i++ {
-		if w := runewidth.StringWidth(lines[i]); w > mainWidth {
+		if w := displayWidthForTest(lines[i]); w > mainWidth {
 			mainWidth = w
 		}
 	}
 
-	keysTopW := runewidth.StringWidth(lines[keysIdx-1])
-	keysMidW := runewidth.StringWidth(lines[keysIdx])
+	keysTopW := displayWidthForTest(lines[keysIdx-1])
+	keysMidW := displayWidthForTest(lines[keysIdx])
 
-	keysBotW := runewidth.StringWidth(lines[keysIdx+1])
+	keysBotW := displayWidthForTest(lines[keysIdx+1])
 	if keysTopW != keysMidW || keysMidW != keysBotW {
 		t.Fatalf("keys bar width mismatch: top=%d mid=%d bot=%d", keysTopW, keysMidW, keysBotW)
 	}
@@ -1014,6 +1025,29 @@ func TestTUIViewShowsPendingConfirmInKeysBar(t *testing.T) {
 
 	if !strings.Contains(out, "Press Y to confirm, N to cancel") {
 		t.Fatalf("expected confirm hint in keys bar, got: %q", out)
+	}
+}
+
+func TestTUIViewShowsPendingGroupDeleteInKeysBar(t *testing.T) {
+	m := tuiModel{
+		width:         136,
+		height:        32,
+		previewCache:  make(map[string][]string),
+		groupBy:       "host",
+		focus:         focusTree,
+		pendingAction: "delete-group",
+		pendingGroup:  "/tmp/group-a",
+		pendingCount:  4,
+		pendingStep:   2,
+	}
+
+	out := stripANSIForTest(m.View())
+	if !strings.Contains(out, "PENDING DELETE GROUP 2/3") {
+		t.Fatalf("expected group pending banner in keys bar, got: %q", out)
+	}
+
+	if !strings.Contains(out, "sessions=4") {
+		t.Fatalf("expected group session count in keys bar, got: %q", out)
 	}
 }
 
@@ -1117,6 +1151,167 @@ func TestTUIRequestDeletePendingAndConfirm(t *testing.T) {
 	}
 
 	if !strings.Contains(m.status, "delete: action=") {
+		t.Fatalf("unexpected status: %q", m.status)
+	}
+}
+
+func TestTUIRequestDeleteGroupDryRunFromHeader(t *testing.T) {
+	now := time.Now()
+	m := tuiModel{
+		groupBy: "host",
+		sessions: []session.Session{
+			{SessionID: "s1", Path: filepath.Join(t.TempDir(), "s1.jsonl"), UpdatedAt: now, HostDir: "/tmp/group-a", SizeBytes: 10},
+			{SessionID: "s2", Path: filepath.Join(t.TempDir(), "s2.jsonl"), UpdatedAt: now.Add(-time.Minute), HostDir: "/tmp/group-a", SizeBytes: 20},
+			{SessionID: "s3", Path: filepath.Join(t.TempDir(), "s3.jsonl"), UpdatedAt: now.Add(-2 * time.Minute), HostDir: "/tmp/group-b", SizeBytes: 30},
+		},
+		dryRun:       true,
+		confirm:      true,
+		source:       "sessions",
+		maxBatch:     10,
+		previewCache: map[string][]string{},
+	}
+	m.rebuildTree()
+
+	if idx, ok := m.findGroupIndex("/tmp/group-a"); ok {
+		m.cursor = idx
+	}
+
+	m.requestDelete()
+
+	if !strings.Contains(m.status, "delete-group: action=dry-run matched=2") {
+		t.Fatalf("unexpected status: %q", m.status)
+	}
+}
+
+func TestTUIHandleKeyDeleteRunsGroupDeleteFromHeader(t *testing.T) {
+	now := time.Now()
+	m := tuiModel{
+		groupBy: "host",
+		sessions: []session.Session{
+			{SessionID: "s1", Path: filepath.Join(t.TempDir(), "s1.jsonl"), UpdatedAt: now, HostDir: "/tmp/group-a", SizeBytes: 10},
+			{SessionID: "s2", Path: filepath.Join(t.TempDir(), "s2.jsonl"), UpdatedAt: now.Add(-time.Minute), HostDir: "/tmp/group-a", SizeBytes: 20},
+		},
+		dryRun:       true,
+		confirm:      true,
+		source:       "sessions",
+		maxBatch:     10,
+		previewCache: map[string][]string{},
+	}
+	m.rebuildTree()
+
+	if idx, ok := m.findGroupIndex("/tmp/group-a"); ok {
+		m.cursor = idx
+	}
+
+	m.handleKey("d")
+
+	if !strings.Contains(m.status, "delete-group: action=dry-run matched=2") {
+		t.Fatalf("unexpected status after handleKey: %q", m.status)
+	}
+}
+
+func TestTUIRequestDeleteGroupRequiresThreeConfirms(t *testing.T) {
+	workspace := testsupport.PrepareFixtureSandbox(t, "rich")
+	sessionsRoot := filepath.Join(workspace, "sessions")
+	trashRoot := filepath.Join(workspace, "trash")
+	logFile := filepath.Join(workspace, "logs", "actions.log")
+	now := time.Now()
+
+	targetA := filepath.Join(workspace, "sessions", "2026", "03", "02", "rollout-delete-dry.jsonl")
+	targetB := filepath.Join(workspace, "sessions", "2026", "03", "02", "rollout-delete-confirm.jsonl")
+	targetC := filepath.Join(workspace, "sessions", "2026", "03", "02", "rollout-delete-hard.jsonl")
+
+	m := tuiModel{
+		groupBy: "host",
+		sessions: []session.Session{
+			{SessionID: "s1", Path: targetA, UpdatedAt: now, HostDir: "/tmp/group-a", SizeBytes: 1},
+			{SessionID: "s2", Path: targetB, UpdatedAt: now.Add(-time.Minute), HostDir: "/tmp/group-a", SizeBytes: 1},
+			{SessionID: "s3", Path: targetC, UpdatedAt: now.Add(-2 * time.Minute), HostDir: "/tmp/group-b", SizeBytes: 1},
+		},
+		sessionsRoot: sessionsRoot,
+		trashRoot:    trashRoot,
+		logFile:      logFile,
+		dryRun:       false,
+		confirm:      true,
+		yes:          false,
+		source:       "sessions",
+		maxBatch:     10,
+		previewCache: map[string][]string{},
+	}
+	m.rebuildTree()
+
+	if idx, ok := m.findGroupIndex("/tmp/group-a"); ok {
+		m.cursor = idx
+	}
+
+	m.requestDelete()
+
+	if m.pendingAction != "delete-group" || m.pendingStep != 1 || m.pendingGroup != "/tmp/group-a" {
+		t.Fatalf("unexpected pending group delete state: action=%q step=%d group=%q", m.pendingAction, m.pendingStep, m.pendingGroup)
+	}
+
+	m.commitPendingAction()
+
+	if m.pendingStep != 2 {
+		t.Fatalf("expected second confirm step, got %d", m.pendingStep)
+	}
+
+	if _, err := os.Stat(targetA); err != nil {
+		t.Fatalf("expected targetA to remain before final confirm: %v", err)
+	}
+
+	m.commitPendingAction()
+
+	if m.pendingStep != 3 {
+		t.Fatalf("expected third confirm step, got %d", m.pendingStep)
+	}
+
+	if _, err := os.Stat(targetB); err != nil {
+		t.Fatalf("expected targetB to remain before final confirm: %v", err)
+	}
+
+	m.commitPendingAction()
+
+	if m.pendingAction != "" || m.pendingStep != 0 || m.pendingGroup != "" {
+		t.Fatalf("expected pending state cleared after execution: action=%q step=%d group=%q", m.pendingAction, m.pendingStep, m.pendingGroup)
+	}
+
+	if len(m.sessions) != 1 || m.sessions[0].SessionID != "s3" {
+		t.Fatalf("expected group sessions removed after delete, sessions=%+v", m.sessions)
+	}
+
+	if !strings.Contains(m.status, "delete-group: action=soft-delete matched=2") {
+		t.Fatalf("unexpected status: %q", m.status)
+	}
+}
+
+func TestTUICommitPendingGroupDeleteCancelsWhenGroupChanges(t *testing.T) {
+	now := time.Now()
+	m := tuiModel{
+		groupBy: "host",
+		sessions: []session.Session{
+			{SessionID: "s1", UpdatedAt: now, HostDir: "/tmp/group-a"},
+			{SessionID: "s2", UpdatedAt: now.Add(-time.Minute), HostDir: "/tmp/group-b"},
+		},
+		pendingAction: "delete-group",
+		pendingGroup:  "/tmp/group-a",
+		pendingCount:  1,
+		pendingStep:   1,
+		previewCache:  map[string][]string{},
+	}
+	m.rebuildTree()
+
+	if idx, ok := m.findGroupIndex("/tmp/group-b"); ok {
+		m.cursor = idx
+	}
+
+	m.commitPendingAction()
+
+	if m.pendingAction != "" || m.pendingGroup != "" || m.pendingStep != 0 {
+		t.Fatalf("pending group state not cleared: action=%q group=%q step=%d", m.pendingAction, m.pendingGroup, m.pendingStep)
+	}
+
+	if !strings.Contains(m.status, "group changed") {
 		t.Fatalf("unexpected status: %q", m.status)
 	}
 }
@@ -1350,13 +1545,24 @@ func TestTUICommitPendingHostMigrateCancelsWhenHostMissing(t *testing.T) {
 func TestTUICancelPendingActionClearsState(t *testing.T) {
 	m := tuiModel{
 		pendingAction: "restore",
+		pendingStep:   2,
 		pendingID:     "s1",
 		pendingHost:   "/tmp/missing",
+		pendingGroup:  "/tmp/group-a",
+		pendingCount:  3,
 	}
 	m.cancelPendingAction()
 
-	if m.pendingAction != "" || m.pendingID != "" || m.pendingHost != "" {
-		t.Fatalf("pending state not cleared: action=%q id=%q host=%q", m.pendingAction, m.pendingID, m.pendingHost)
+	if m.pendingAction != "" || m.pendingID != "" || m.pendingHost != "" || m.pendingGroup != "" || m.pendingCount != 0 || m.pendingStep != 0 {
+		t.Fatalf(
+			"pending state not cleared: action=%q step=%d id=%q host=%q group=%q count=%d",
+			m.pendingAction,
+			m.pendingStep,
+			m.pendingID,
+			m.pendingHost,
+			m.pendingGroup,
+			m.pendingCount,
+		)
 	}
 
 	if !strings.Contains(m.status, "Pending action cancelled") {

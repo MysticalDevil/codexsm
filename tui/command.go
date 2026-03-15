@@ -83,8 +83,11 @@ type tuiModel struct {
 	maxBatch           int
 	maxBatchChanged    bool
 	pendingAction      string
+	pendingStep        int
 	pendingID          string
 	pendingHost        string
+	pendingGroup       string
+	pendingCount       int
 }
 
 type CommandDeps struct {
@@ -134,10 +137,10 @@ func NewCommand(deps CommandDeps) *cobra.Command {
 			"  z: collapse/expand selected session group\n" +
 			"  Z: expand all groups\n" +
 			"  Ctrl+d / Ctrl+u: scroll preview\n" +
-			"  d: delete current session (respects --dry-run/--confirm)\n" +
+			"  d: delete current session, or selected group on a group header\n" +
 			"  m: migrate sessions with missing selected host to trash\n" +
 			"  r: restore current session (only when --source=trash)\n" +
-			"  y/n: confirm/cancel pending action\n" +
+			"  y/n: confirm/cancel pending action (group real delete requires 3 confirms)\n" +
 			"  q: quit",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(sessionsRoot) == "" {
