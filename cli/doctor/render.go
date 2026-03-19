@@ -3,9 +3,13 @@ package doctor
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/MysticalDevil/codexsm/usecase"
+	"github.com/charmbracelet/x/term"
+	"github.com/mattn/go-runewidth"
 )
 
 const (
@@ -14,6 +18,8 @@ const (
 	ansiYellow   = "\x1b[33m"
 	ansiRed      = "\x1b[31m"
 	ansiCyanBold = "\x1b[1;36m"
+
+	detailContinuationIndent = "   "
 )
 
 func colorize(v, color string, enabled bool) string {
@@ -51,6 +57,7 @@ func renderChecks(checks []usecase.DoctorCheck, color bool) string {
 	}
 
 	_, _ = fmt.Fprintf(&buf, "%s  %s  %s\n", headCheck, headStatus, headDetail)
+	detailWrapW := detailWrapWidth(checkW, statusW)
 
 	for _, c := range checks {
 		status := fmt.Sprintf("%-*s", statusW, string(c.Level))
@@ -69,6 +76,7 @@ func renderChecks(checks []usecase.DoctorCheck, color bool) string {
 		if len(lines) == 0 {
 			lines = []string{""}
 		}
+		lines = wrapDetailLines(lines, detailWrapW)
 
 		_, _ = fmt.Fprintf(&buf, "%-*s  %s  %s\n", checkW, c.Name, status, lines[0])
 		for _, line := range lines[1:] {
@@ -95,6 +103,160 @@ func detailLines(detail string) []string {
 		}
 
 		out = append(out, line)
+	}
+
+	return out
+}
+
+func detailWrapWidth(checkW, statusW int) int {
+	cols, ok := terminalColumns()
+	if !ok || cols <= 0 {
+		return 0
+	}
+
+	prefixW := checkW + 2 + statusW + 2
+	available := cols - prefixW
+	if available <= 0 {
+		return 1
+	}
+
+	return available
+}
+
+func terminalColumns() (int, bool) {
+	if colsRaw, ok := os.LookupEnv("COLUMNS"); ok {
+		cols, err := strconv.Atoi(strings.TrimSpace(colsRaw))
+		if err == nil && cols > 0 {
+			return cols, true
+		}
+	}
+
+	if term.IsTerminal(os.Stdout.Fd()) {
+		if cols, _, err := term.GetSize(os.Stdout.Fd()); err == nil && cols > 0 {
+			return cols, true
+		}
+	}
+
+	if term.IsTerminal(os.Stderr.Fd()) {
+		if cols, _, err := term.GetSize(os.Stderr.Fd()); err == nil && cols > 0 {
+			return cols, true
+		}
+	}
+
+	return 0, false
+}
+
+func wrapDetailLines(lines []string, width int) []string {
+	if len(lines) == 0 {
+		return lines
+	}
+
+	if width <= 0 {
+		return lines
+	}
+
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		wrapped := wrapLineByWidth(line, width, width-len(detailContinuationIndent))
+		if len(wrapped) == 0 {
+			out = append(out, "")
+			continue
+		}
+
+		out = append(out, wrapped[0])
+		for _, cont := range wrapped[1:] {
+			out = append(out, detailContinuationIndent+cont)
+		}
+	}
+
+	return out
+}
+
+func wrapLineByWidth(v string, firstWidth, continuationWidth int) []string {
+	if firstWidth <= 0 {
+		return []string{v}
+	}
+	if continuationWidth <= 0 {
+		continuationWidth = 1
+	}
+
+	words := strings.Fields(v)
+	if len(words) == 0 {
+		return []string{""}
+	}
+
+	out := make([]string, 0, 4)
+	current := words[0]
+	currentLimit := firstWidth
+
+	if runewidth.StringWidth(current) > currentLimit {
+		split := wrapRunesByWidth(current, currentLimit, continuationWidth)
+		out = append(out, split[:len(split)-1]...)
+		current = split[len(split)-1]
+		currentLimit = continuationWidth
+	}
+
+	for _, w := range words[1:] {
+		candidate := current + " " + w
+		if runewidth.StringWidth(candidate) <= currentLimit {
+			current = candidate
+			continue
+		}
+
+		out = append(out, current)
+		currentLimit = continuationWidth
+		if runewidth.StringWidth(w) > currentLimit {
+			split := wrapRunesByWidth(w, currentLimit, continuationWidth)
+			out = append(out, split[:len(split)-1]...)
+			current = split[len(split)-1]
+			continue
+		}
+
+		current = w
+	}
+
+	out = append(out, current)
+	return out
+}
+
+func wrapRunesByWidth(v string, firstWidth, continuationWidth int) []string {
+	if firstWidth <= 0 {
+		return []string{v}
+	}
+	if continuationWidth <= 0 {
+		continuationWidth = 1
+	}
+
+	var (
+		out     []string
+		b       strings.Builder
+		current int
+	)
+	limit := firstWidth
+
+	for _, r := range v {
+		rw := runewidth.RuneWidth(r)
+		if rw <= 0 {
+			rw = 1
+		}
+
+		if current+rw > limit && b.Len() > 0 {
+			out = append(out, b.String())
+			b.Reset()
+			current = 0
+			limit = continuationWidth
+		}
+
+		b.WriteRune(r)
+		current += rw
+	}
+
+	if b.Len() > 0 {
+		out = append(out, b.String())
+	}
+
+	if len(out) == 0 {
+		return []string{""}
 	}
 
 	return out
