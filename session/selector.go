@@ -1,12 +1,11 @@
 package session
 
 import (
-	"sort"
 	"strings"
 	"time"
 )
 
-// FilterSessions applies selector constraints and returns results ordered by UpdatedAt desc.
+// FilterSessions applies selector constraints and preserves input order.
 func FilterSessions(sessions []Session, sel Selector, now time.Time) []Session {
 	out := make([]Session, 0, len(sessions))
 	for _, s := range sessions {
@@ -16,10 +15,6 @@ func FilterSessions(sessions []Session, sel Selector, now time.Time) []Session {
 
 		out = append(out, s)
 	}
-
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].UpdatedAt.After(out[j].UpdatedAt)
-	})
 
 	return out
 }

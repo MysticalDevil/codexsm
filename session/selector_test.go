@@ -90,3 +90,21 @@ func TestFilterSessions_MultilingualAndEmojiHeadContains(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterSessions_PreservesInputOrder(t *testing.T) {
+	now := time.Now()
+	sessions := []Session{
+		{SessionID: "first", UpdatedAt: now.Add(-time.Hour)},
+		{SessionID: "second", UpdatedAt: now.Add(-time.Minute)},
+		{SessionID: "third", UpdatedAt: now.Add(-2 * time.Hour)},
+	}
+
+	got := FilterSessions(sessions, Selector{}, now)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 sessions, got %d", len(got))
+	}
+
+	if got[0].SessionID != "first" || got[1].SessionID != "second" || got[2].SessionID != "third" {
+		t.Fatalf("unexpected order: %+v", got)
+	}
+}

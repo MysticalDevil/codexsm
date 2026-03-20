@@ -34,7 +34,7 @@ func healthRiskEvaluator(s session.Session, _ session.IntegrityChecker) session.
 	return session.Risk{Level: session.RiskNone}
 }
 
-func TestLoadTUISessionsRiskSortAndLimits(t *testing.T) {
+func TestLoadTUISessionsRiskSortAfterScanLimit(t *testing.T) {
 	now := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
 	items := []session.Session{
 		{SessionID: "ok-new", UpdatedAt: now.Add(3 * time.Minute), Health: session.HealthOK},
@@ -46,6 +46,42 @@ func TestLoadTUISessionsRiskSortAndLimits(t *testing.T) {
 	out, err := LoadTUISessions(LoadTUISessionsInput{
 		SessionsRoot: "/tmp/sessions",
 		ScanLimit:    3,
+		ViewLimit:    2,
+		Repository:   repoWith(items, nil),
+		Evaluator:    healthRiskEvaluator,
+	})
+	if err != nil {
+		t.Fatalf("LoadTUISessions: %v", err)
+	}
+
+	if out.Total != 4 {
+		t.Fatalf("unexpected total: %d", out.Total)
+	}
+
+	if len(out.Items) != 2 {
+		t.Fatalf("unexpected item count: %d", len(out.Items))
+	}
+
+	if out.Items[0].SessionID != "mid-mid" {
+		t.Fatalf("expected medium risk first in limited window, got %q", out.Items[0].SessionID)
+	}
+
+	if out.Items[1].SessionID != "ok-new" {
+		t.Fatalf("expected newest ok second, got %q", out.Items[1].SessionID)
+	}
+}
+
+func TestLoadTUISessionsRiskSortWithoutScanLimit(t *testing.T) {
+	now := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+	items := []session.Session{
+		{SessionID: "ok-new", UpdatedAt: now.Add(3 * time.Minute), Health: session.HealthOK},
+		{SessionID: "high-old", UpdatedAt: now.Add(-5 * time.Minute), Health: session.HealthCorrupted},
+		{SessionID: "mid-mid", UpdatedAt: now.Add(-1 * time.Minute), Health: session.HealthMissingMeta},
+		{SessionID: "ok-old", UpdatedAt: now.Add(-3 * time.Minute), Health: session.HealthOK},
+	}
+
+	out, err := LoadTUISessions(LoadTUISessionsInput{
+		SessionsRoot: "/tmp/sessions",
 		ViewLimit:    2,
 		Repository:   repoWith(items, nil),
 		Evaluator:    healthRiskEvaluator,

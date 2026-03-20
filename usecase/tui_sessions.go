@@ -25,7 +25,9 @@ type LoadTUISessionsResult struct {
 
 // LoadTUISessions loads sessions for TUI and applies risk-first ordering.
 func LoadTUISessions(in LoadTUISessionsInput) (LoadTUISessionsResult, error) {
-	q, err := core.QuerySessions(in.Repository, in.SessionsRoot, core.QuerySpec{
+	repo := sessionRepositoryOrDefault(in.Repository)
+
+	q, err := core.QuerySessions(repo, in.SessionsRoot, core.QuerySpec{
 		Now: in.Now,
 	})
 	if err != nil {
@@ -33,11 +35,11 @@ func LoadTUISessions(in LoadTUISessionsInput) (LoadTUISessionsResult, error) {
 	}
 
 	items := append([]session.Session(nil), q.Items...)
-	core.SortSessionsByRisk(items, in.Evaluator, nil)
-
 	if in.ScanLimit > 0 && len(items) > in.ScanLimit {
 		items = items[:in.ScanLimit]
 	}
+
+	core.SortSessionsByRisk(items, in.Evaluator, nil)
 
 	if in.ViewLimit > 0 && len(items) > in.ViewLimit {
 		items = items[:in.ViewLimit]
