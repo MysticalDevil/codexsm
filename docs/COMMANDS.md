@@ -187,8 +187,6 @@ just fmt
 just lint
 just test
 just test-integration
-just test-all
-just cover
 just cover-gate
 just bench-tui
 just bench-gate

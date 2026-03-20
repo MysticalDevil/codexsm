@@ -1,15 +1,6 @@
 set shell := ["bash", "-cu"]
 
 go := "go"
-home_dir := env_var_or_default("HOME", ".")
-xdg_config_home := env_var_or_default("XDG_CONFIG_HOME", home_dir + "/.config")
-xdg_state_home := env_var_or_default("XDG_STATE_HOME", home_dir + "/.local/state")
-xdg_runtime_home := env_var_or_default("XDG_RUNTIME_DIR", xdg_state_home + "/codexsm/runtime")
-gofumpt := if env_var_or_default("GOFUMPT", "") != "" {
-  env_var("GOFUMPT")
-} else {
-  "gofumpt"
-}
 goexperiment := "GOEXPERIMENT=jsonv2"
 go_with_experiment := goexperiment + " " + go
 version := env_var_or_default("VERSION", "dev")
@@ -21,43 +12,19 @@ bench_sort_3k_ns_max := env_var_or_default("BENCH_SORT_3K_NS_MAX", "15000000")
 bench_sort_10k_ns_max := env_var_or_default("BENCH_SORT_10K_NS_MAX", "50000000")
 gen_seed := env_var_or_default("GEN_SEED", "20260308")
 gen_count := env_var_or_default("GEN_COUNT", "3000")
-gen_min_turns := env_var_or_default("GEN_MIN_TURNS", "12")
-gen_max_turns := env_var_or_default("GEN_MAX_TURNS", "48")
-gen_risk_missing_meta_count := env_var_or_default("GEN_RISK_MISSING_META_COUNT", "3")
-gen_risk_corrupted_count := env_var_or_default("GEN_RISK_CORRUPTED_COUNT", "3")
-gen_large_file_count := env_var_or_default("GEN_LARGE_FILE_COUNT", "0")
-gen_oversize_meta_count := env_var_or_default("GEN_OVERSIZE_META_COUNT", "0")
-gen_oversize_user_count := env_var_or_default("GEN_OVERSIZE_USER_COUNT", "0")
-gen_oversize_assistant_count := env_var_or_default("GEN_OVERSIZE_ASSISTANT_COUNT", "0")
-gen_no_newline_count := env_var_or_default("GEN_NO_NEWLINE_COUNT", "0")
-gen_mixed_corrupt_huge_count := env_var_or_default("GEN_MIXED_CORRUPT_HUGE_COUNT", "0")
-gen_unicode_wide_count := env_var_or_default("GEN_UNICODE_WIDE_COUNT", "0")
-gen_long_message_bytes := env_var_or_default("GEN_LONG_MESSAGE_BYTES", "131072")
-gen_meta_line_bytes := env_var_or_default("GEN_META_LINE_BYTES", "98304")
-gen_large_file_target_bytes := env_var_or_default("GEN_LARGE_FILE_TARGET_BYTES", "1048576")
-gen_payload_shape := env_var_or_default("GEN_PAYLOAD_SHAPE", "mixed")
-gen_time_range_start := env_var_or_default("GEN_TIME_RANGE_START", "2026-03-01T00:00:00Z")
-gen_time_range_end := env_var_or_default("GEN_TIME_RANGE_END", "2026-03-31T23:59:59Z")
 gen_output_root := env_var_or_default("GEN_OUTPUT_ROOT", "testdata/_generated/sessions")
-ci_config_dir := xdg_config_home + "/codexsm"
-ci_state_dir := xdg_state_home + "/codexsm/ci"
-ci_runtime_dir := xdg_runtime_home + "/codexsm"
 
 # Show available targets
 default:
   @just --list
 
-# Install required dev tools
-tools:
-  {{go_with_experiment}} install mvdan.cc/gofumpt@latest
-
 # Format Go sources
 fmt:
-  {{gofumpt}} -w .
+  mise exec -- gofumpt -w .
 
 # Run static checks
 lint:
-  {{go_with_experiment}} vet ./...
+  mise exec -- golangci-lint run
 
 # Validate documentation links and release-version examples
 docs-check:
@@ -82,22 +49,6 @@ test:
 # Run integration tests
 test-integration:
   {{go_with_experiment}} test -tags=integration {{integration_pkg}}
-
-# Run all tests
-test-all: test test-integration
-
-# Report unit test coverage
-cover-unit:
-  {{go_with_experiment}} test -count=1 ./... -coverprofile=coverage_unit.out
-  {{go}} tool cover -func=coverage_unit.out
-
-# Report integration test coverage
-cover-integration:
-  {{go_with_experiment}} test -count=1 -tags=integration {{integration_pkg}} -coverprofile=coverage_integration.out
-  {{go}} tool cover -func=coverage_integration.out
-
-# Report both coverage sets
-cover: cover-unit cover-integration
 
 # Enforce unit + integration coverage thresholds
 cover-gate:
@@ -134,32 +85,31 @@ bench-session:
 bench-cli:
   {{go_with_experiment}} test -run='^$' -bench='Benchmark(RenderTable|RenderJSON|DoctorRiskJSON)' -benchmem ./cli
 
-# Run all lightweight benchmark suites
-bench-all: bench-session bench-cli bench-tui
-
 # Run CI smoke checks against built binary and risk fixture dataset
 ci-smoke:
   set -e; \
-  mkdir -p "{{ci_config_dir}}" "{{ci_state_dir}}" "{{ci_runtime_dir}}"; \
+  ci_config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/codexsm"; \
+  ci_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/codexsm/ci"; \
+  mkdir -p "$ci_config_dir" "$ci_state_dir"; \
   {{go_with_experiment}} build -ldflags="-X main.version={{version}}" -o {{bin}} .; \
   ./{{bin}} restore --help | grep -q -- "--batch-id"; \
   ./{{bin}} delete --help | grep -q -- "--preview"; \
   ./{{bin}} config --help | grep -q -- "show"; \
   ./{{bin}} config --help | grep -q -- "validate"; \
-  CSM_CONFIG="{{ci_config_dir}}/config.json" ./{{bin}} config init --dry-run | grep -q -- "\"sessions_root\""; \
-  if ./{{bin}} restore --batch-id b-test --id deadbeef >"{{ci_state_dir}}/restore-conflict.log" 2>&1; then \
+  CSM_CONFIG="$ci_config_dir/config.json" ./{{bin}} config init --dry-run | grep -q -- "\"sessions_root\""; \
+  if ./{{bin}} restore --batch-id b-test --id deadbeef >"$ci_state_dir/restore-conflict.log" 2>&1; then \
     echo "expected restore conflict to fail"; \
     exit 1; \
   fi; \
-  grep -q "cannot be combined" "{{ci_state_dir}}/restore-conflict.log"; \
-  ./{{bin}} doctor >"{{ci_state_dir}}/doctor.txt"; \
+  grep -q "cannot be combined" "$ci_state_dir/restore-conflict.log"; \
+  ./{{bin}} doctor >"$ci_state_dir/doctor.txt"; \
   rc=0; \
-  ./{{bin}} doctor risk --sessions-root ./testdata/fixtures/risky-static/sessions --format json --sample-limit 3 >"{{ci_state_dir}}/risk.json" || rc=$?; \
+  ./{{bin}} doctor risk --sessions-root ./testdata/fixtures/risky-static/sessions --format json --sample-limit 3 >"$ci_state_dir/risk.json" || rc=$?; \
   if [ "$rc" -ne 1 ]; then \
     echo "expected doctor risk fixture check to exit 1, got $rc"; \
     exit 1; \
   fi; \
-  python3 scripts/check_doctor_risk_json.py "{{ci_state_dir}}/risk.json" --sample-limit 3
+  python3 scripts/check_doctor_risk_json.py "$ci_state_dir/risk.json" --sample-limit 3
 
 # Enforce TUI benchmark latency guardrails (ns/op)
 bench-gate:
@@ -196,82 +146,86 @@ gen-sessions:
   python3 scripts/gen_seeded_sessions.py \
     --seed {{gen_seed}} \
     --count {{gen_count}} \
-    --min-turns {{gen_min_turns}} \
-    --max-turns {{gen_max_turns}} \
-    --risk-missing-meta-count {{gen_risk_missing_meta_count}} \
-    --risk-corrupted-count {{gen_risk_corrupted_count}} \
-    --large-file-count {{gen_large_file_count}} \
-    --oversize-meta-count {{gen_oversize_meta_count}} \
-    --oversize-user-count {{gen_oversize_user_count}} \
-    --oversize-assistant-count {{gen_oversize_assistant_count}} \
-    --no-newline-count {{gen_no_newline_count}} \
-    --mixed-corrupt-huge-count {{gen_mixed_corrupt_huge_count}} \
-    --unicode-wide-count {{gen_unicode_wide_count}} \
-    --long-message-bytes {{gen_long_message_bytes}} \
-    --meta-line-bytes {{gen_meta_line_bytes}} \
-    --large-file-target-bytes {{gen_large_file_target_bytes}} \
-    --payload-shape {{gen_payload_shape}} \
-    --time-range-start {{gen_time_range_start}} \
-    --time-range-end {{gen_time_range_end}} \
     --output-root {{gen_output_root}}
 
 # Generate a compact extreme dataset for local regression checks
 gen-sessions-extreme:
-  GEN_COUNT=0 \
-  GEN_RISK_MISSING_META_COUNT=1 \
-  GEN_RISK_CORRUPTED_COUNT=1 \
-  GEN_LARGE_FILE_COUNT=1 \
-  GEN_OVERSIZE_META_COUNT=1 \
-  GEN_OVERSIZE_USER_COUNT=1 \
-  GEN_OVERSIZE_ASSISTANT_COUNT=1 \
-  GEN_NO_NEWLINE_COUNT=1 \
-  GEN_MIXED_CORRUPT_HUGE_COUNT=1 \
-  GEN_UNICODE_WIDE_COUNT=1 \
-  GEN_LONG_MESSAGE_BYTES=65536 \
-  GEN_META_LINE_BYTES=32768 \
-  GEN_LARGE_FILE_TARGET_BYTES=262144 \
-  GEN_PAYLOAD_SHAPE=mixed \
-  just gen-sessions
+  python3 scripts/gen_seeded_sessions.py \
+    --seed {{gen_seed}} \
+    --count 0 \
+    --risk-missing-meta-count 1 \
+    --risk-corrupted-count 1 \
+    --large-file-count 1 \
+    --oversize-meta-count 1 \
+    --oversize-user-count 1 \
+    --oversize-assistant-count 1 \
+    --no-newline-count 1 \
+    --mixed-corrupt-huge-count 1 \
+    --unicode-wide-count 1 \
+    --long-message-bytes 65536 \
+    --meta-line-bytes 32768 \
+    --large-file-target-bytes 262144 \
+    --payload-shape mixed \
+    --output-root {{gen_output_root}}
 
 # Generate a larger stress dataset for manual benchmarking and memory checks
 gen-sessions-large:
-  GEN_COUNT=200 \
-  GEN_RISK_MISSING_META_COUNT=3 \
-  GEN_RISK_CORRUPTED_COUNT=3 \
-  GEN_LARGE_FILE_COUNT=6 \
-  GEN_OVERSIZE_META_COUNT=4 \
-  GEN_OVERSIZE_USER_COUNT=6 \
-  GEN_OVERSIZE_ASSISTANT_COUNT=6 \
-  GEN_NO_NEWLINE_COUNT=4 \
-  GEN_MIXED_CORRUPT_HUGE_COUNT=4 \
-  GEN_UNICODE_WIDE_COUNT=4 \
-  GEN_LONG_MESSAGE_BYTES=262144 \
-  GEN_META_LINE_BYTES=131072 \
-  GEN_LARGE_FILE_TARGET_BYTES=2097152 \
-  GEN_PAYLOAD_SHAPE=log-heavy \
-  just gen-sessions
+  python3 scripts/gen_seeded_sessions.py \
+    --seed {{gen_seed}} \
+    --count 200 \
+    --risk-missing-meta-count 3 \
+    --risk-corrupted-count 3 \
+    --large-file-count 6 \
+    --oversize-meta-count 4 \
+    --oversize-user-count 6 \
+    --oversize-assistant-count 6 \
+    --no-newline-count 4 \
+    --mixed-corrupt-huge-count 4 \
+    --unicode-wide-count 4 \
+    --long-message-bytes 262144 \
+    --meta-line-bytes 131072 \
+    --large-file-target-bytes 2097152 \
+    --payload-shape log-heavy \
+    --output-root {{gen_output_root}}
 
 # Generate a large dataset and run list/doctor risk smoke checks locally
 stress-cli:
   set -e; \
-  mkdir -p "{{ci_runtime_dir}}" "{{ci_state_dir}}"; \
-  tmpdir="$(mktemp -d "{{ci_runtime_dir}}/stress-cli.XXXXXX")"; \
+  ci_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/codexsm/ci"; \
+  mkdir -p "$ci_state_dir"; \
+  tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/codexsm-stress-cli.XXXXXX")"; \
   trap 'rm -rf "$tmpdir"' EXIT; \
   {{go_with_experiment}} build -ldflags="-X main.version={{version}}" -o {{bin}} .; \
-  GEN_OUTPUT_ROOT="$tmpdir/sessions" just gen-sessions-large; \
-  ./codexsm list --sessions-root "$tmpdir/sessions" --limit 50 --format json >"{{ci_state_dir}}/stress-list.json"; \
+  python3 scripts/gen_seeded_sessions.py \
+    --seed {{gen_seed}} \
+    --count 200 \
+    --risk-missing-meta-count 3 \
+    --risk-corrupted-count 3 \
+    --large-file-count 6 \
+    --oversize-meta-count 4 \
+    --oversize-user-count 6 \
+    --oversize-assistant-count 6 \
+    --no-newline-count 4 \
+    --mixed-corrupt-huge-count 4 \
+    --unicode-wide-count 4 \
+    --long-message-bytes 262144 \
+    --meta-line-bytes 131072 \
+    --large-file-target-bytes 2097152 \
+    --payload-shape log-heavy \
+    --output-root "$tmpdir/sessions"; \
+  ./codexsm list --sessions-root "$tmpdir/sessions" --limit 50 --format json >"$ci_state_dir/stress-list.json"; \
   rc=0; \
-  ./codexsm doctor risk --sessions-root "$tmpdir/sessions" --format json --sample-limit 5 >"{{ci_state_dir}}/stress-risk.json" || rc=$?; \
+  ./codexsm doctor risk --sessions-root "$tmpdir/sessions" --format json --sample-limit 5 >"$ci_state_dir/stress-risk.json" || rc=$?; \
   if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then \
     echo "doctor risk stress smoke failed with rc=$rc"; \
     exit 1; \
   fi; \
-  test -s "{{ci_state_dir}}/stress-list.json"; \
-  test -s "{{ci_state_dir}}/stress-risk.json"
+  test -s "$ci_state_dir/stress-list.json"; \
+  test -s "$ci_state_dir/stress-risk.json"
 
 # Remove generated coverage files
 clean:
   rm -f coverage_unit.out coverage_integration.out
 
 # Run the smallest full quality gate
-check: fmt lint docs-check test-all build
+check: fmt lint docs-check test test-integration build

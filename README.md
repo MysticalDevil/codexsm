@@ -150,12 +150,10 @@ TUI note:
 ```bash
 just build
 just check
-just cover-gate
 just bench-session
 just bench-cli
 just bench-gate
 just bench-tui
-just bench-all
 just stress-cli
 codexsm doctor risk --sessions-root ./testdata/fixtures/risky-static/sessions --format json --sample-limit 5
 just gen-sessions-extreme
