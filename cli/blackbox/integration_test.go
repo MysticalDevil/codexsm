@@ -5,6 +5,7 @@ package blackbox
 
 import (
 	"bytes"
+	"encoding/json/v2"
 	"errors"
 	"os"
 	"os/exec"
@@ -173,6 +174,155 @@ func TestFlagOverridesConfigSessionsRoot(t *testing.T) {
 	}
 }
 
+func TestDeleteDryRunDoesNotMoveSession(t *testing.T) {
+	_, sessionsRoot, trashRoot, logFile := fixtureRoots(t)
+
+	item, err := firstSessionFromList(t, sessionsRoot)
+	if err != nil {
+		t.Fatalf("firstSessionFromList: %v", err)
+	}
+
+	id := item.SessionID
+	beforeSessionPath := item.Path
+
+	res := runCLI(t, []string{
+		"delete",
+		"--sessions-root", sessionsRoot,
+		"--trash-root", trashRoot,
+		"--log-file", logFile,
+		"--id", id,
+		"--dry-run",
+	}, nil)
+	if res.ExitCode != 0 {
+		t.Fatalf("expected delete dry-run exit code 0, got %d stderr=%q err=%v", res.ExitCode, res.Stderr, res.Err)
+	}
+
+	if !strings.Contains(res.Stdout, "simulation=true") {
+		t.Fatalf("expected simulation summary in stdout, got %q", res.Stdout)
+	}
+
+	if _, err := os.Stat(beforeSessionPath); err != nil {
+		t.Fatalf("expected session to remain after dry-run: %v", err)
+	}
+
+	if _, moved, err := lookupSessionByID(t, filepath.Join(trashRoot, "sessions"), id); err != nil {
+		t.Fatalf("lookup trashed session: %v", err)
+	} else if moved {
+		t.Fatalf("session %q unexpectedly moved to trash on dry-run", id)
+	}
+}
+
+func TestRestoreDryRunDoesNotMoveSessionBack(t *testing.T) {
+	_, sessionsRoot, trashRoot, logFile := fixtureRoots(t)
+
+	item, err := firstSessionFromList(t, sessionsRoot)
+	if err != nil {
+		t.Fatalf("firstSessionFromList: %v", err)
+	}
+
+	id := item.SessionID
+
+	deleteRes := runCLI(t, []string{
+		"delete",
+		"--sessions-root", sessionsRoot,
+		"--trash-root", trashRoot,
+		"--log-file", logFile,
+		"--id", id,
+		"--dry-run=false",
+		"--confirm",
+		"--yes",
+	}, nil)
+	if deleteRes.ExitCode != 0 {
+		t.Fatalf("expected real delete exit code 0, got %d stderr=%q err=%v", deleteRes.ExitCode, deleteRes.Stderr, deleteRes.Err)
+	}
+
+	if _, inSessions, err := lookupSessionByID(t, sessionsRoot, id); err != nil {
+		t.Fatalf("lookup session in sessions root: %v", err)
+	} else if inSessions {
+		t.Fatalf("expected session %q to be moved out of sessions after real delete", id)
+	}
+
+	trashSessionsRoot := filepath.Join(trashRoot, "sessions")
+	trashItem, inTrash, err := lookupSessionByID(t, trashSessionsRoot, id)
+	if err != nil {
+		t.Fatalf("lookup session in trash root: %v", err)
+	}
+
+	if !inTrash {
+		t.Fatalf("expected session %q to exist in trash after real delete", id)
+	}
+
+	restoreRes := runCLI(t, []string{
+		"restore",
+		"--sessions-root", sessionsRoot,
+		"--trash-root", trashRoot,
+		"--log-file", logFile,
+		"--id", id,
+		"--dry-run",
+	}, nil)
+	if restoreRes.ExitCode != 0 {
+		t.Fatalf("expected restore dry-run exit code 0, got %d stderr=%q err=%v", restoreRes.ExitCode, restoreRes.Stderr, restoreRes.Err)
+	}
+
+	if !strings.Contains(restoreRes.Stdout, "simulation=true") {
+		t.Fatalf("expected simulation summary in stdout, got %q", restoreRes.Stdout)
+	}
+
+	if _, err := os.Stat(trashItem.Path); err != nil {
+		t.Fatalf("expected trashed file to remain after restore dry-run: %v", err)
+	}
+
+	if _, inSessionsAfter, err := lookupSessionByID(t, sessionsRoot, id); err != nil {
+		t.Fatalf("lookup session after restore dry-run: %v", err)
+	} else if inSessionsAfter {
+		t.Fatalf("session %q unexpectedly restored during dry-run", id)
+	}
+}
+
+func TestAgentsLintStrictJSONExitAndPayload(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	repo := filepath.Join(t.TempDir(), "repo")
+	cwd := filepath.Join(repo, "sub")
+
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+
+	if err := os.MkdirAll(cwd, 0o755); err != nil {
+		t.Fatalf("mkdir cwd: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(repo, "AGENTS.md"), []byte("Prefer rg for text search.\nPrefer rg for text search.\n"), 0o644); err != nil {
+		t.Fatalf("write repo agents: %v", err)
+	}
+
+	res := runCLI(t, []string{"agents", "lint", "--cwd", cwd, "--strict", "--format", "json"}, []string{"HOME=" + home})
+	if res.ExitCode != 1 {
+		t.Fatalf("expected exit code 1 for strict lint warnings, got %d stderr=%q err=%v", res.ExitCode, res.Stderr, res.Err)
+	}
+
+	if strings.TrimSpace(res.Stdout) == "" {
+		t.Fatal("expected JSON payload on stdout for strict lint")
+	}
+
+	var payload struct {
+		Summary struct {
+			Warnings int `json:"warnings"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &payload); err != nil {
+		t.Fatalf("decode lint json payload: %v stdout=%q", err, res.Stdout)
+	}
+
+	if payload.Summary.Warnings == 0 {
+		t.Fatalf("expected warnings in lint payload: %+v", payload)
+	}
+
+	if !strings.Contains(res.Stderr, "strict mode") {
+		t.Fatalf("expected strict mode error in stderr, got %q", res.Stderr)
+	}
+}
+
 func fixtureRoots(t *testing.T) (workspace, sessionsRoot, trashRoot, logFile string) {
 	t.Helper()
 
@@ -270,4 +420,53 @@ func repoRoot(t *testing.T) string {
 
 		cur = next
 	}
+}
+
+type listedSession struct {
+	SessionID string `json:"session_id"`
+	Path      string `json:"path"`
+}
+
+func firstSessionFromList(t *testing.T, sessionsRoot string) (listedSession, error) {
+	t.Helper()
+
+	res := runCLI(t, []string{"list", "--sessions-root", sessionsRoot, "--format", "json", "--limit", "1"}, nil)
+	if res.ExitCode != 0 {
+		return listedSession{}, errors.New("list command failed")
+	}
+
+	var items []listedSession
+	if err := json.Unmarshal([]byte(res.Stdout), &items); err != nil {
+		return listedSession{}, err
+	}
+
+	if len(items) == 0 {
+		return listedSession{}, errors.New("no sessions returned by list")
+	}
+
+	return items[0], nil
+}
+
+func lookupSessionByID(t *testing.T, sessionsRoot, id string) (listedSession, bool, error) {
+	t.Helper()
+
+	res := runCLI(t, []string{"list", "--sessions-root", sessionsRoot, "--format", "json", "--limit", "1", "--id", id}, nil)
+	if res.ExitCode != 0 {
+		if strings.Contains(res.Stderr, "no sessions matched") {
+			return listedSession{}, false, nil
+		}
+
+		return listedSession{}, false, errors.New("list lookup command failed")
+	}
+
+	var items []listedSession
+	if err := json.Unmarshal([]byte(res.Stdout), &items); err != nil {
+		return listedSession{}, false, err
+	}
+
+	if len(items) == 0 {
+		return listedSession{}, false, nil
+	}
+
+	return items[0], true, nil
 }
