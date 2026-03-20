@@ -139,6 +139,7 @@ codexsm restore --batch-id b-20260305T120102Z-9f1a2b3c4d5e --dry-run=false --con
 ```bash
 codexsm doctor
 codexsm doctor --strict
+codexsm doctor --compact-home=false
 codexsm doctor risk
 codexsm doctor risk --format json --integrity-check
 
@@ -192,5 +193,5 @@ just cover-gate
 just bench-tui
 just bench-gate
 just check
-just check-release 0.3.4
+just check-release 0.3.5
 ```
