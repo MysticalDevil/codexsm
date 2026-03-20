@@ -224,7 +224,7 @@ func TestDeleteRestoreHelperPaths(t *testing.T) {
 	})
 	del.PrintDeletePreview(cmd, []session.Session{{SessionID: "s1", Path: "/tmp/a", SizeBytes: 5}}, false, ops.PreviewSample, 1)
 	restore.PrintRestorePreview(cmd, []session.Session{{SessionID: "s1", Path: "/tmp/a", SizeBytes: 5}}, ops.PreviewSample, 1)
-	restore.PrintRestoreSummary(cmd, usecase.RestoreSummary{
+	restore.PrintRestoreSummary(cmd, session.RestoreSummary{
 		Action:       "restore-dry-run",
 		Simulation:   true,
 		MatchedCount: 1,

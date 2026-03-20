@@ -57,28 +57,6 @@ func TestRunDeleteAndRestoreActionApplyBatchDefaults(t *testing.T) {
 	}
 }
 
-type stubDeleteExecutor struct {
-	summary session.DeleteSummary
-	err     error
-	opts    session.DeleteOptions
-}
-
-func (s *stubDeleteExecutor) Execute(_ []session.Session, _ session.Selector, opts session.DeleteOptions) (session.DeleteSummary, error) {
-	s.opts = opts
-	return s.summary, s.err
-}
-
-type stubRestoreExecutor struct {
-	summary session.RestoreSummary
-	err     error
-	opts    session.RestoreOptions
-}
-
-func (s *stubRestoreExecutor) Execute(_ []session.Session, _ session.Selector, opts session.RestoreOptions) (session.RestoreSummary, error) {
-	s.opts = opts
-	return s.summary, s.err
-}
-
 type stubAuditSink struct {
 	batchID    string
 	batchErr   error
@@ -107,8 +85,11 @@ func (s *stubAuditSink) WriteActionLog(logFile string, rec audit.ActionRecord) e
 }
 
 func TestRunDeleteAndRestoreActionUseInjectedExecutors(t *testing.T) {
-	delExec := &stubDeleteExecutor{
-		summary: session.DeleteSummary{Action: "dry-run", Simulation: true},
+	var delOpts session.DeleteOptions
+
+	delExec := func(_ []session.Session, _ session.Selector, opts session.DeleteOptions) (session.DeleteSummary, error) {
+		delOpts = opts
+		return session.DeleteSummary{Action: "dry-run", Simulation: true}, nil
 	}
 
 	delOut, err := RunDeleteAction(DeleteActionInput{
@@ -129,12 +110,15 @@ func TestRunDeleteAndRestoreActionUseInjectedExecutors(t *testing.T) {
 		t.Fatalf("unexpected delete summary: %+v", delOut.Summary)
 	}
 
-	if delExec.opts.MaxBatch != 77 {
-		t.Fatalf("expected injected delete opts max-batch=77, got %d", delExec.opts.MaxBatch)
+	if delOpts.MaxBatch != 77 {
+		t.Fatalf("expected injected delete opts max-batch=77, got %d", delOpts.MaxBatch)
 	}
 
-	restoreExec := &stubRestoreExecutor{
-		summary: session.RestoreSummary{Action: "restore-dry-run", Simulation: true},
+	var restoreOpts session.RestoreOptions
+
+	restoreExec := func(_ []session.Session, _ session.Selector, opts session.RestoreOptions) (session.RestoreSummary, error) {
+		restoreOpts = opts
+		return session.RestoreSummary{Action: "restore-dry-run", Simulation: true}, nil
 	}
 
 	restoreOut, err := RunRestoreAction(RestoreActionInput{
@@ -156,14 +140,14 @@ func TestRunDeleteAndRestoreActionUseInjectedExecutors(t *testing.T) {
 		t.Fatalf("unexpected restore summary: %+v", restoreOut.Summary)
 	}
 
-	if restoreExec.opts.MaxBatch != 66 {
-		t.Fatalf("expected injected restore opts max-batch=66, got %d", restoreExec.opts.MaxBatch)
+	if restoreOpts.MaxBatch != 66 {
+		t.Fatalf("expected injected restore opts max-batch=66, got %d", restoreOpts.MaxBatch)
 	}
 }
 
 func TestRunDeleteActionWritesAuditViaSink(t *testing.T) {
-	delExec := &stubDeleteExecutor{
-		summary: session.DeleteSummary{Action: "dry-run", Simulation: true},
+	delExec := func(_ []session.Session, _ session.Selector, _ session.DeleteOptions) (session.DeleteSummary, error) {
+		return session.DeleteSummary{Action: "dry-run", Simulation: true}, nil
 	}
 	sink := &stubAuditSink{batchID: "b-del"}
 
@@ -177,7 +161,8 @@ func TestRunDeleteActionWritesAuditViaSink(t *testing.T) {
 		MaxBatchChanged: true,
 		Executor:        delExec,
 		LogFile:         "/tmp/actions.log",
-		AuditSink:       sink,
+		NewBatchID:      sink.NewBatchID,
+		WriteActionLog:  sink.WriteActionLog,
 		Now:             time.Date(2026, 3, 14, 1, 2, 3, 0, time.UTC),
 	})
 	if err != nil {
@@ -198,8 +183,8 @@ func TestRunDeleteActionWritesAuditViaSink(t *testing.T) {
 }
 
 func TestRunRestoreActionPropagatesAuditWriteError(t *testing.T) {
-	restoreExec := &stubRestoreExecutor{
-		summary: session.RestoreSummary{Action: "restore-dry-run", Simulation: true},
+	restoreExec := func(_ []session.Session, _ session.Selector, _ session.RestoreOptions) (session.RestoreSummary, error) {
+		return session.RestoreSummary{Action: "restore-dry-run", Simulation: true}, nil
 	}
 	sink := &stubAuditSink{batchID: "b-res", writeErr: fmt.Errorf("write failed")}
 
@@ -214,7 +199,8 @@ func TestRunRestoreActionPropagatesAuditWriteError(t *testing.T) {
 		AllowEmptySelector: false,
 		Executor:           restoreExec,
 		LogFile:            "/tmp/actions.log",
-		AuditSink:          sink,
+		NewBatchID:         sink.NewBatchID,
+		WriteActionLog:     sink.WriteActionLog,
 		Now:                time.Date(2026, 3, 14, 2, 3, 4, 0, time.UTC),
 	})
 	if err != nil {

@@ -27,7 +27,8 @@ type DeleteActionInput struct {
 	DryRunDefault   int
 	Executor        DeleteExecutor
 	LogFile         string
-	AuditSink       AuditSink
+	NewBatchID      NewBatchID
+	WriteActionLog  WriteActionLog
 	Now             time.Time
 }
 
@@ -39,23 +40,13 @@ type DeleteActionResult struct {
 }
 
 // DeleteExecutor executes delete workflow over selected sessions.
-type DeleteExecutor interface {
-	Execute(candidates []session.Session, sel session.Selector, opts session.DeleteOptions) (session.DeleteSummary, error)
-}
+type DeleteExecutor func(candidates []session.Session, sel session.Selector, opts session.DeleteOptions) (session.DeleteSummary, error)
 
-// SessionDeleteExecutor is the default delete executor.
-type SessionDeleteExecutor struct{}
+// NewBatchID allocates operation batch IDs for action logging.
+type NewBatchID func() (string, error)
 
-// Execute runs the session delete operation.
-func (SessionDeleteExecutor) Execute(candidates []session.Session, sel session.Selector, opts session.DeleteOptions) (session.DeleteSummary, error) {
-	return session.DeleteSessions(candidates, sel, opts)
-}
-
-// AuditSink appends action records and can allocate operation batch IDs.
-type AuditSink interface {
-	NewBatchID() (string, error)
-	WriteActionLog(logFile string, rec audit.ActionRecord) error
-}
+// WriteActionLog appends one action record into the action log file.
+type WriteActionLog func(logFile string, rec audit.ActionRecord) error
 
 func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
 	applied := EffectiveMaxBatchWithDefaults(
@@ -68,10 +59,10 @@ func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
 
 	executor := in.Executor
 	if executor == nil {
-		executor = SessionDeleteExecutor{}
+		executor = session.DeleteSessions
 	}
 
-	sum, err := executor.Execute(in.Sessions, in.Selector, session.DeleteOptions{
+	sum, err := executor(in.Sessions, in.Selector, session.DeleteOptions{
 		DryRun:       in.DryRun,
 		Confirm:      in.Confirm,
 		Yes:          in.Yes,
@@ -82,12 +73,12 @@ func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
 	})
 
 	out := DeleteActionResult{Summary: sum, AppliedMaxBatch: applied}
-	if in.AuditSink == nil || in.LogFile == "" {
+	if in.NewBatchID == nil || in.WriteActionLog == nil || in.LogFile == "" {
 		return out, err
 	}
 
 	if len(in.Sessions) > 0 {
-		batchID, batchErr := in.AuditSink.NewBatchID()
+		batchID, batchErr := in.NewBatchID()
 		if batchErr != nil {
 			return out, batchErr
 		}
@@ -111,7 +102,7 @@ func RunDeleteAction(in DeleteActionInput) (DeleteActionResult, error) {
 		sum.Results,
 		sum.ErrorSummary,
 	)
-	out.LogError = in.AuditSink.WriteActionLog(in.LogFile, rec)
+	out.LogError = in.WriteActionLog(in.LogFile, rec)
 
 	return out, err
 }
@@ -131,32 +122,20 @@ type RestoreActionInput struct {
 	AllowEmptySelector bool
 	Executor           RestoreExecutor
 	LogFile            string
-	AuditSink          AuditSink
+	NewBatchID         NewBatchID
+	WriteActionLog     WriteActionLog
 	Now                time.Time
 }
 
-// RestoreSummary is restore execution summary.
-type RestoreSummary = session.RestoreSummary
-
 type RestoreActionResult struct {
-	Summary         RestoreSummary
+	Summary         session.RestoreSummary
 	AppliedMaxBatch int
 	BatchID         string
 	LogError        error
 }
 
 // RestoreExecutor executes restore workflow over selected sessions.
-type RestoreExecutor interface {
-	Execute(candidates []session.Session, sel session.Selector, opts session.RestoreOptions) (session.RestoreSummary, error)
-}
-
-// SessionRestoreExecutor is the default restore executor.
-type SessionRestoreExecutor struct{}
-
-// Execute runs the restore operation.
-func (SessionRestoreExecutor) Execute(candidates []session.Session, sel session.Selector, opts session.RestoreOptions) (session.RestoreSummary, error) {
-	return session.RestoreSessions(candidates, sel, opts)
-}
+type RestoreExecutor func(candidates []session.Session, sel session.Selector, opts session.RestoreOptions) (session.RestoreSummary, error)
 
 func RunRestoreAction(in RestoreActionInput) (RestoreActionResult, error) {
 	applied := EffectiveMaxBatchWithDefaults(
@@ -169,10 +148,10 @@ func RunRestoreAction(in RestoreActionInput) (RestoreActionResult, error) {
 
 	executor := in.Executor
 	if executor == nil {
-		executor = SessionRestoreExecutor{}
+		executor = session.RestoreSessions
 	}
 
-	sum, err := executor.Execute(in.Sessions, in.Selector, session.RestoreOptions{
+	sum, err := executor(in.Sessions, in.Selector, session.RestoreOptions{
 		DryRun:             in.DryRun,
 		Confirm:            in.Confirm,
 		Yes:                in.Yes,
@@ -183,12 +162,12 @@ func RunRestoreAction(in RestoreActionInput) (RestoreActionResult, error) {
 	})
 
 	out := RestoreActionResult{Summary: sum, AppliedMaxBatch: applied}
-	if in.AuditSink == nil || in.LogFile == "" {
+	if in.NewBatchID == nil || in.WriteActionLog == nil || in.LogFile == "" {
 		return out, err
 	}
 
 	if len(in.Sessions) > 0 {
-		batchID, batchErr := in.AuditSink.NewBatchID()
+		batchID, batchErr := in.NewBatchID()
 		if batchErr != nil {
 			return out, batchErr
 		}
@@ -212,7 +191,7 @@ func RunRestoreAction(in RestoreActionInput) (RestoreActionResult, error) {
 		sum.Results,
 		sum.ErrorSummary,
 	)
-	out.LogError = in.AuditSink.WriteActionLog(in.LogFile, rec)
+	out.LogError = in.WriteActionLog(in.LogFile, rec)
 
 	return out, err
 }

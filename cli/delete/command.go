@@ -20,7 +20,8 @@ func NewCommand(
 	resolveSessionsRoot func() (string, error),
 	resolveTrashRoot func() (string, error),
 	resolveLogFile func() (string, error),
-	runtimeAuditSink usecase.AuditSink,
+	runtimeNewBatchID usecase.NewBatchID,
+	runtimeWriteActionLog usecase.WriteActionLog,
 	nowFn func() time.Time,
 ) *cobra.Command {
 	var (
@@ -130,7 +131,8 @@ func NewCommand(
 				RealDefault:     usecase.DefaultMaxBatchReal,
 				DryRunDefault:   usecase.DefaultMaxBatchDryRun,
 				LogFile:         logFile,
-				AuditSink:       runtimeAuditSink,
+				NewBatchID:      runtimeNewBatchID,
+				WriteActionLog:  runtimeWriteActionLog,
 				Now:             now,
 			})
 			if deleteErr == nil && out.LogError != nil {

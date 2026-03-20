@@ -7,7 +7,6 @@ import (
 
 	"github.com/MysticalDevil/codexsm/internal/ops"
 	"github.com/MysticalDevil/codexsm/session"
-	"github.com/MysticalDevil/codexsm/usecase"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +15,7 @@ func TestPrintRestoreSummaryIncludesResultError(t *testing.T) {
 	stdout := &bytes.Buffer{}
 	cmd.SetOut(stdout)
 
-	PrintRestoreSummary(cmd, usecase.RestoreSummary{
+	PrintRestoreSummary(cmd, session.RestoreSummary{
 		Action:       "restore",
 		Simulation:   true,
 		MatchedCount: 1,

@@ -58,8 +58,8 @@ func NewRootCmd() *cobra.Command {
 
 	cmd.AddCommand(list.NewCommand(runtimeSessionsRoot))
 	cmd.AddCommand(newGroupCmd())
-	cmd.AddCommand(del.NewCommand(runtimeSessionsRoot, runtimeTrashRoot, runtimeLogFile, runtimeAuditSink, time.Now))
-	cmd.AddCommand(restore.NewCommand(runtimeSessionsRoot, runtimeTrashRoot, runtimeLogFile, runtimeAuditSink, time.Now))
+	cmd.AddCommand(del.NewCommand(runtimeSessionsRoot, runtimeTrashRoot, runtimeLogFile, runtimeNewBatchID, runtimeWriteActionLog, time.Now))
+	cmd.AddCommand(restore.NewCommand(runtimeSessionsRoot, runtimeTrashRoot, runtimeLogFile, runtimeNewBatchID, runtimeWriteActionLog, time.Now))
 	cmd.AddCommand(newSessionCmd())
 	cmd.AddCommand(newAgentsCmd())
 	cmd.AddCommand(cfg.NewCommand(runtimeSessionsRoot, runtimeTrashRoot, runtimeLogFile))

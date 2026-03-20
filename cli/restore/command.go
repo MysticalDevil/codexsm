@@ -22,7 +22,8 @@ func NewCommand(
 	resolveSessionsRoot func() (string, error),
 	resolveTrashRoot func() (string, error),
 	resolveLogFile func() (string, error),
-	runtimeAuditSink usecase.AuditSink,
+	runtimeNewBatchID usecase.NewBatchID,
+	runtimeWriteActionLog usecase.WriteActionLog,
 	nowFn func() time.Time,
 ) *cobra.Command {
 	var (
@@ -136,7 +137,8 @@ func NewCommand(
 				SessionsRoot:       sessionsRoot,
 				TrashSessionsRoot:  trashSessionsRoot,
 				LogFile:            logFile,
-				AuditSink:          runtimeAuditSink,
+				NewBatchID:         runtimeNewBatchID,
+				WriteActionLog:     runtimeWriteActionLog,
 				Now:                now,
 			})
 			if runErr == nil && out.LogError != nil {
@@ -205,7 +207,7 @@ func NewCommand(
 	return cmd
 }
 
-func PrintRestoreSummary(cmd *cobra.Command, s usecase.RestoreSummary) {
+func PrintRestoreSummary(cmd *cobra.Command, s session.RestoreSummary) {
 	out := cmd.OutOrStdout()
 
 	_, _ = fmt.Fprintf(out, "action=%s simulation=%t matched=%d succeeded=%d failed=%d skipped=%d affected_bytes=%d\n",
