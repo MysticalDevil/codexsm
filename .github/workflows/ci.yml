@@ -84,7 +84,7 @@ jobs:
         run: go test -count=1 ./... -coverprofile=coverage_unit.out
 
       - name: Test (integration)
-        run: go test -count=1 -tags=integration ./cli -coverprofile=coverage_integration.out
+        run: go test -count=1 -tags=integration ./cli/... -coverprofile=coverage_integration.out
 
       - name: Coverage gate
         run: |

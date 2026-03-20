@@ -46,6 +46,13 @@ codexsm completion fish > ~/.config/fish/completions/codexsm.fish
 codexsm completion powershell > codexsm.ps1
 ```
 
+## Exit Codes
+
+- `0`: command completed successfully
+- `1`: command failed due to user/input/runtime validation or policy checks (for example, conflicting flags, strict lint warnings, risk detection)
+
+For scripting/CI, prefer exit-code checks over matching human-readable output text.
+
 ## Session Browsing
 
 ```bash

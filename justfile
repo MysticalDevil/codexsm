@@ -5,7 +5,7 @@ goexperiment := "GOEXPERIMENT=jsonv2"
 go_with_experiment := goexperiment + " " + go
 version := env_var_or_default("VERSION", "dev")
 bin := env_var_or_default("BIN", "codexsm")
-integration_pkg := env_var_or_default("INTEGRATION_PKG", "./cli")
+integration_pkg := env_var_or_default("INTEGRATION_PKG", "./cli/...")
 unit_cov_min := env_var_or_default("UNIT_COV_MIN", "60")
 integration_cov_min := env_var_or_default("INTEGRATION_COV_MIN", "72")
 bench_sort_3k_ns_max := env_var_or_default("BENCH_SORT_3K_NS_MAX", "15000000")
