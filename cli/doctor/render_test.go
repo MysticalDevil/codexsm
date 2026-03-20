@@ -20,6 +20,7 @@ func TestRenderChecksWrapsDetailToColumns(t *testing.T) {
 	}
 
 	out := renderChecks(checks, false, false)
+
 	lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
 	if len(lines) < 3 {
 		t.Fatalf("expected wrapped output, got lines=%d output=%q", len(lines), out)
@@ -44,15 +45,19 @@ func TestRenderChecksColorizesDetailTokens(t *testing.T) {
 	if !strings.Contains(out, ansiCyanBold+"codexsm"+ansiReset) {
 		t.Fatalf("expected codexsm to be colorized, got: %q", out)
 	}
+
 	if !strings.Contains(out, ansiRed+"delete"+ansiReset) {
 		t.Fatalf("expected subcommand to be colorized, got: %q", out)
 	}
+
 	if !strings.Contains(out, ansiYellow+"--dry-run=false"+ansiReset) {
 		t.Fatalf("expected flag to be colorized, got: %q", out)
 	}
+
 	if !strings.Contains(out, ansiDim+"/tmp/codexsm-fixture/worktrees/c"+ansiReset) {
 		t.Fatalf("expected path to be colorized, got: %q", out)
 	}
+
 	if strings.Contains(out, ansiMagenta+"migrate"+ansiReset) {
 		t.Fatalf("did not expect migrate to be colorized, got: %q", out)
 	}

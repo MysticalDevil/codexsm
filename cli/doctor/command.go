@@ -21,8 +21,10 @@ func NewCommand(
 	resolveTrashRoot func() (string, error),
 	resolveLogFile func() (string, error),
 ) *cobra.Command {
-	var strict bool
-	var compactHomePath bool
+	var (
+		strict          bool
+		compactHomePath bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "doctor",

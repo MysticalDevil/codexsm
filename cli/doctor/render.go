@@ -35,6 +35,7 @@ func colorize(v, color string, enabled bool) string {
 
 func renderChecks(checks []usecase.DoctorCheck, color bool, compactHomePath bool) string {
 	var buf bytes.Buffer
+
 	home := ""
 	if compactHomePath {
 		home, _ = os.UserHomeDir()
@@ -43,8 +44,9 @@ func renderChecks(checks []usecase.DoctorCheck, color bool, compactHomePath bool
 	checkW := len("CHECK")
 
 	statusW := len("STATUS")
+
 	for _, c := range checks {
-		checkName := checkLabel(c.Name)
+		checkName := strings.TrimSpace(c.Name)
 		if len(checkName) > checkW {
 			checkW = len(checkName)
 		}
@@ -84,19 +86,24 @@ func renderChecks(checks []usecase.DoctorCheck, color bool, compactHomePath bool
 		if len(lines) == 0 {
 			lines = []string{""}
 		}
+
 		lines = normalizeDetailLines(lines, compactHomePath, home)
 		lines = wrapDetailLines(lines, detailWrapW)
 
-		checkName := checkLabel(c.Name)
+		checkName := strings.TrimSpace(c.Name)
+
 		first := lines[0]
 		if color {
 			first = colorizeDetailLine(first)
 		}
+
 		_, _ = fmt.Fprintf(&buf, "%-*s  %s  %s\n", checkW, checkName, status, first)
+
 		for _, line := range lines[1:] {
 			if color {
 				line = colorizeDetailLine(line)
 			}
+
 			_, _ = fmt.Fprintf(&buf, "%s  %s  %s\n", strings.Repeat(" ", checkW), strings.Repeat(" ", statusW), line)
 		}
 	}
@@ -123,10 +130,6 @@ func detailLines(detail string) []string {
 	}
 
 	return out
-}
-
-func checkLabel(name string) string {
-	return strings.TrimSpace(name)
 }
 
 func normalizeDetailLines(lines []string, compactHomePath bool, home string) []string {
@@ -159,12 +162,14 @@ func normalizeDetailLine(line, home string) string {
 func colorizeDetailLine(line string) string {
 	prefixLen := len(line) - len(strings.TrimLeft(line, " "))
 	prefix := line[:prefixLen]
+
 	content := strings.TrimLeft(line, " ")
 	if content == "" {
 		return line
 	}
 
 	tokens := strings.Fields(content)
+
 	styled := make([]string, 0, len(tokens))
 	for _, tok := range tokens {
 		styled = append(styled, colorizeDetailToken(tok))
@@ -180,6 +185,7 @@ func colorizeDetailToken(tok string) string {
 	}
 
 	styledCore := core
+
 	lower := strings.ToLower(core)
 	switch {
 	case lower == "codexsm":
@@ -212,6 +218,7 @@ func compactHomePathToken(tok, home string) string {
 	}
 
 	replaced := compactHomePathCore(core, home)
+
 	return leading + replaced + trailing
 }
 
@@ -260,6 +267,7 @@ func detailWrapWidth(checkW, statusW int) int {
 	}
 
 	prefixW := checkW + 2 + statusW + 2
+
 	available := cols - prefixW
 	if available <= 0 {
 		return 1
@@ -321,6 +329,7 @@ func wrapLineByWidth(v string, firstWidth, continuationWidth int) []string {
 	if firstWidth <= 0 {
 		return []string{v}
 	}
+
 	if continuationWidth <= 0 {
 		continuationWidth = 1
 	}
@@ -349,11 +358,13 @@ func wrapLineByWidth(v string, firstWidth, continuationWidth int) []string {
 		}
 
 		out = append(out, current)
+
 		currentLimit = continuationWidth
 		if runewidth.StringWidth(w) > currentLimit {
 			split := wrapRunesByWidth(w, currentLimit, continuationWidth)
 			out = append(out, split[:len(split)-1]...)
 			current = split[len(split)-1]
+
 			continue
 		}
 
@@ -361,6 +372,7 @@ func wrapLineByWidth(v string, firstWidth, continuationWidth int) []string {
 	}
 
 	out = append(out, current)
+
 	return out
 }
 
@@ -368,6 +380,7 @@ func wrapRunesByWidth(v string, firstWidth, continuationWidth int) []string {
 	if firstWidth <= 0 {
 		return []string{v}
 	}
+
 	if continuationWidth <= 0 {
 		continuationWidth = 1
 	}
@@ -377,6 +390,7 @@ func wrapRunesByWidth(v string, firstWidth, continuationWidth int) []string {
 		b       strings.Builder
 		current int
 	)
+
 	limit := firstWidth
 
 	for _, r := range v {
@@ -388,11 +402,13 @@ func wrapRunesByWidth(v string, firstWidth, continuationWidth int) []string {
 		if current+rw > limit && b.Len() > 0 {
 			out = append(out, b.String())
 			b.Reset()
+
 			current = 0
 			limit = continuationWidth
 		}
 
 		b.WriteRune(r)
+
 		current += rw
 	}
 
