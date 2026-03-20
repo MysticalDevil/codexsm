@@ -14,7 +14,16 @@ import (
 
 // AgentsExplainInput controls AGENTS.md explain behavior.
 type AgentsExplainInput struct {
-	CWD string
+	CWD           string
+	EffectiveOnly bool
+	SourceFilter  string
+	RuleFilter    string
+}
+
+type AgentsExplainFilters struct {
+	EffectiveOnly bool   `json:"effective_only,omitempty"`
+	SourceFilter  string `json:"source_filter,omitempty"`
+	RuleFilter    string `json:"rule_filter,omitempty"`
 }
 
 // AgentsExplainSource is one discovered AGENTS.md source.
@@ -48,6 +57,7 @@ type AgentsExplainResult struct {
 	CWD     string                `json:"cwd"`
 	Sources []AgentsExplainSource `json:"sources"`
 	Rules   []AgentsExplainRule   `json:"rules"`
+	Filters AgentsExplainFilters  `json:"filters,omitempty"`
 	Summary AgentsExplainSummary  `json:"summary"`
 }
 
@@ -69,6 +79,11 @@ func ExplainAgents(in AgentsExplainInput) (AgentsExplainResult, error) {
 		CWD:     core.CompactHomePath(cwd, home),
 		Sources: make([]AgentsExplainSource, 0, len(sourcePaths)),
 		Rules:   make([]AgentsExplainRule, 0, 32),
+		Filters: AgentsExplainFilters{
+			EffectiveOnly: in.EffectiveOnly,
+			SourceFilter:  strings.TrimSpace(in.SourceFilter),
+			RuleFilter:    strings.TrimSpace(in.RuleFilter),
+		},
 	}
 	for i, p := range sourcePaths {
 		result.Sources = append(result.Sources, AgentsExplainSource{
@@ -112,9 +127,18 @@ func ExplainAgents(in AgentsExplainInput) (AgentsExplainResult, error) {
 		}
 	}
 
-	result.Summary.Sources = len(result.Sources)
+	result.Rules = filterAgentsRules(result.Rules, result.Filters)
+	computeAgentsSummary(&result)
 
+	return result, nil
+}
+
+func computeAgentsSummary(result *AgentsExplainResult) {
+	result.Summary.Sources = len(result.Sources)
 	result.Summary.Rules = len(result.Rules)
+	result.Summary.Effective = 0
+	result.Summary.Shadowed = 0
+
 	for _, r := range result.Rules {
 		if r.Status == "effective" {
 			result.Summary.Effective++
@@ -122,8 +146,42 @@ func ExplainAgents(in AgentsExplainInput) (AgentsExplainResult, error) {
 			result.Summary.Shadowed++
 		}
 	}
+}
 
-	return result, nil
+func filterAgentsRules(rules []AgentsExplainRule, filters AgentsExplainFilters) []AgentsExplainRule {
+	sourceFilter := strings.ToLower(strings.TrimSpace(filters.SourceFilter))
+	ruleFilter := strings.ToLower(strings.TrimSpace(filters.RuleFilter))
+
+	if !filters.EffectiveOnly && sourceFilter == "" && ruleFilter == "" {
+		return rules
+	}
+
+	out := make([]AgentsExplainRule, 0, len(rules))
+	for _, r := range rules {
+		if filters.EffectiveOnly && r.Status != "effective" {
+			continue
+		}
+
+		if sourceFilter != "" {
+			p := strings.ToLower(r.SourcePath)
+			if !strings.Contains(p, sourceFilter) {
+				continue
+			}
+		}
+
+		if ruleFilter != "" {
+			k := strings.ToLower(r.Key)
+
+			t := strings.ToLower(r.Text)
+			if !strings.Contains(k, ruleFilter) && !strings.Contains(t, ruleFilter) {
+				continue
+			}
+		}
+
+		out = append(out, r)
+	}
+
+	return out
 }
 
 type agentsRuleLine struct {

@@ -121,3 +121,101 @@ func TestAgentsExplainJSON(t *testing.T) {
 		t.Fatalf("unexpected summary: %+v", decoded.Summary)
 	}
 }
+
+func TestAgentsExplainWithFilters(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	repo := filepath.Join(t.TempDir(), "repo")
+
+	cwd := filepath.Join(repo, "sub")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+
+	if err := os.MkdirAll(cwd, 0o755); err != nil {
+		t.Fatalf("mkdir cwd: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+
+	if err := os.WriteFile(filepath.Join(repo, "AGENTS.md"), []byte("Prefer rg for text search.\n"), 0o644); err != nil {
+		t.Fatalf("write repo AGENTS: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(repo, "sub", "AGENTS.md"), []byte("Use ast-grep for structural queries.\n"), 0o644); err != nil {
+		t.Fatalf("write sub AGENTS: %v", err)
+	}
+
+	cmd := NewRootCmd()
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{"agents", "explain", "--cwd", cwd, "--effective-only", "--source", "sub", "--rule", "ast-grep"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("agents explain filtered execute: %v", err)
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "filters:") {
+		t.Fatalf("expected filters line in output: %q", out)
+	}
+
+	if !strings.Contains(strings.ToLower(out), "ast-grep") {
+		t.Fatalf("expected filtered ast-grep rule: %q", out)
+	}
+}
+
+func TestAgentsLintTableAndStrict(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	repo := filepath.Join(t.TempDir(), "repo")
+
+	cwd := filepath.Join(repo, "sub")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+
+	if err := os.MkdirAll(cwd, 0o755); err != nil {
+		t.Fatalf("mkdir cwd: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+
+	if err := os.WriteFile(filepath.Join(repo, "AGENTS.md"), []byte("Prefer rg for text search.\nPrefer rg for text search.\n"), 0o644); err != nil {
+		t.Fatalf("write repo AGENTS: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(repo, "sub", "AGENTS.md"), []byte("Prefer rg for text search.\n"), 0o644); err != nil {
+		t.Fatalf("write sub AGENTS: %v", err)
+	}
+
+	cmd := NewRootCmd()
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{"agents", "lint", "--cwd", cwd})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("agents lint execute: %v", err)
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "ISSUES") {
+		t.Fatalf("expected issues output: %q", out)
+	}
+
+	cmd = NewRootCmd()
+
+	stdout.Reset()
+	stderr.Reset()
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{"agents", "lint", "--cwd", cwd, "--strict"})
+
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected strict lint to fail with warnings")
+	}
+}
