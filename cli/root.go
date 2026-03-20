@@ -6,9 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MysticalDevil/codexsm/cli/agents"
 	cfg "github.com/MysticalDevil/codexsm/cli/config"
 	del "github.com/MysticalDevil/codexsm/cli/delete"
 	"github.com/MysticalDevil/codexsm/cli/doctor"
+	"github.com/MysticalDevil/codexsm/cli/group"
 	"github.com/MysticalDevil/codexsm/cli/list"
 	"github.com/MysticalDevil/codexsm/cli/restore"
 	"github.com/MysticalDevil/codexsm/tui"
@@ -57,11 +59,11 @@ func NewRootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&logFormat, "log-format", "text", "log format: text|json")
 
 	cmd.AddCommand(list.NewCommand(runtimeSessionsRoot))
-	cmd.AddCommand(newGroupCmd())
+	cmd.AddCommand(group.NewCommand(runtimeSessionsRoot))
 	cmd.AddCommand(del.NewCommand(runtimeSessionsRoot, runtimeTrashRoot, runtimeLogFile, runtimeNewBatchID, runtimeWriteActionLog, time.Now))
 	cmd.AddCommand(restore.NewCommand(runtimeSessionsRoot, runtimeTrashRoot, runtimeLogFile, runtimeNewBatchID, runtimeWriteActionLog, time.Now))
 	cmd.AddCommand(newSessionCmd())
-	cmd.AddCommand(newAgentsCmd())
+	cmd.AddCommand(agents.NewCommand())
 	cmd.AddCommand(cfg.NewCommand(runtimeSessionsRoot, runtimeTrashRoot, runtimeLogFile))
 	cmd.AddCommand(tui.NewCommand(tui.CommandDeps{
 		ResolveSessionsRoot: runtimeSessionsRoot,

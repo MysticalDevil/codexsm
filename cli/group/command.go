@@ -1,4 +1,4 @@
-package cli
+package group
 
 import (
 	"bytes"
@@ -9,14 +9,14 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/MysticalDevil/codexsm/cli/list"
 	cliutil "github.com/MysticalDevil/codexsm/cli/util"
 	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/usecase"
-
 	"github.com/spf13/cobra"
 )
 
-func newGroupCmd() *cobra.Command {
+func NewCommand(resolveSessionsRoot func() (string, error)) *cobra.Command {
 	var (
 		sessionsRoot string
 		id           string
@@ -48,7 +48,7 @@ func newGroupCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var err error
 
-			sessionsRoot, err = cliutil.ResolveOrDefault(sessionsRoot, runtimeSessionsRoot)
+			sessionsRoot, err = cliutil.ResolveOrDefault(sessionsRoot, resolveSessionsRoot)
 			if err != nil {
 				return err
 			}
@@ -78,7 +78,7 @@ func newGroupCmd() *cobra.Command {
 					return err
 				}
 
-				return writeWithPager(cmd.OutOrStdout(), table, pager, pageSize, true)
+				return list.WriteWithPager(cmd.OutOrStdout(), table, pager, pageSize, true)
 			case "json":
 				b, err := json.Marshal(stats)
 				if err != nil {
@@ -147,6 +147,12 @@ func renderGroupTable(stats []usecase.GroupStat, by, colorMode string, out io.Wr
 	return colorizeGroupedTable(text), nil
 }
 
+const (
+	ansiReset    = "\x1b[0m"
+	ansiDim      = "\x1b[2m"
+	ansiCyanBold = "\x1b[1;36m"
+)
+
 func colorizeGroupedTable(text string) string {
 	if text == "" {
 		return text
@@ -176,6 +182,14 @@ func colorizeGroupedTable(text string) string {
 	}
 
 	return out
+}
+
+func colorize(v, color string, enabled bool) string {
+	if !enabled || color == "" {
+		return v
+	}
+
+	return color + v + ansiReset
 }
 
 func writeGroupDelimited(out io.Writer, stats []usecase.GroupStat, sep rune) error {

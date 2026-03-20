@@ -45,11 +45,3 @@ const (
 	ansiDim      = "\x1b[2m"
 	ansiCyanBold = "\x1b[1;36m"
 )
-
-func colorize(v, color string, enabled bool) string {
-	if !enabled || color == "" {
-		return v
-	}
-
-	return color + v + ansiReset
-}

@@ -1,4 +1,4 @@
-package cli
+package agents
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newAgentsCmd() *cobra.Command {
+func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agents",
 		Short: "Inspect effective AGENTS.md instructions",
@@ -17,12 +17,12 @@ func newAgentsCmd() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newAgentsExplainCmd())
+	cmd.AddCommand(newExplainCmd())
 
 	return cmd
 }
 
-func newAgentsExplainCmd() *cobra.Command {
+func newExplainCmd() *cobra.Command {
 	var (
 		cwd          string
 		format       string
@@ -62,7 +62,7 @@ func newAgentsExplainCmd() *cobra.Command {
 				return err
 			}
 
-			_, err = fmt.Fprint(cmd.OutOrStdout(), renderAgentsExplainTable(out, showShadowed))
+			_, err = fmt.Fprint(cmd.OutOrStdout(), renderExplainTable(out, showShadowed))
 
 			return err
 		},
@@ -74,7 +74,7 @@ func newAgentsExplainCmd() *cobra.Command {
 	return cmd
 }
 
-func renderAgentsExplainTable(out usecase.AgentsExplainResult, showShadowed bool) string {
+func renderExplainTable(out usecase.AgentsExplainResult, showShadowed bool) string {
 	var b strings.Builder
 
 	_, _ = fmt.Fprintf(&b, "cwd=%s sources=%d rules=%d effective=%d shadowed=%d\n",

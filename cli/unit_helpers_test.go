@@ -17,7 +17,6 @@ import (
 	"github.com/MysticalDevil/codexsm/internal/ops"
 	"github.com/MysticalDevil/codexsm/internal/testsupport"
 	"github.com/MysticalDevil/codexsm/session"
-	"github.com/MysticalDevil/codexsm/usecase"
 	"github.com/MysticalDevil/codexsm/util"
 	"github.com/spf13/cobra"
 )
@@ -345,24 +344,6 @@ func TestRestoreMoveFileAndCopy(t *testing.T) {
 	data2, err := os.ReadFile(dst2)
 	if err != nil || string(data2) != "xyz" {
 		t.Fatalf("dst2 content mismatch err=%v data=%q", err, string(data2))
-	}
-}
-
-func TestGroupRenderHelpers(t *testing.T) {
-	stats := []usecase.GroupStat{{Group: "ok", Count: 2, SizeBytes: 1024, Latest: "2026-03-02 10:00:00"}}
-
-	table, err := renderGroupTable(stats, "health", "never", &bytes.Buffer{})
-	if err != nil {
-		t.Fatalf("renderGroupTable: %v", err)
-	}
-
-	if !strings.Contains(table, "GROUP") || !strings.Contains(table, "groups=1 by=health") {
-		t.Fatalf("unexpected group table: %q", table)
-	}
-
-	colored := colorizeGroupedTable(table)
-	if !strings.Contains(colored, "\x1b[") {
-		t.Fatalf("expected ANSI colorized output: %q", colored)
 	}
 }
 
