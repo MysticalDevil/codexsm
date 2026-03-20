@@ -6,13 +6,13 @@ Current codebase is acceptable for the current release scope and does not requir
 
 Known hot spots:
 
-- `cli` root still carries some shared orchestration/render helpers (`group.go`, `pager.go`, `agents.go`) and can continue converging toward thinner routing-only root files.
+- `cli` root is thinner now and mostly command wiring, but still owns shared runtime/helper concerns (`runtime_*.go`, `pager.go`, `session.go`) that should remain focused and avoid feature creep.
 - `session/scanner/*` and `session/migrate/*` are split subpackages, but scan and migration hot paths still need benchmark-driven tuning.
-- `tui/*` is more modular, but narrow-width behavior still depends on coordinated changes across layout metrics, keybar rendering, and info-row formatting.
+- `tui/*` is more modular (`command` + `bootstrap` split), but narrow-width behavior still depends on coordinated changes across layout metrics, keybar rendering, and info-row formatting.
 
 ## Architecture Design
 
-`codexsm` follows a layered approach. As of `v0.3.4`, the runtime dependency view is:
+`codexsm` follows a layered approach. As of `v0.3.6`, the runtime dependency view is:
 
 ```text
 External/runtime:
@@ -86,11 +86,13 @@ External/runtime:
 - `cli/root.go`
 
 2. Command layer:
-- root command files under `cli/*.go` (`group`, `agents`, `completion`, `version`, `session`, plus shared pager/ansi/logging/runtime helpers).
+- root command files under `cli/*.go` (`completion`, `version`, `session`, plus shared pager/ansi/logging/runtime helpers).
 - subpackage command implementations:
+  - `cli/agents/command.go`
   - `cli/config/command.go`
   - `cli/delete/command.go`
   - `cli/doctor/*.go`
+  - `cli/group/command.go`
   - `cli/list/*.go`
   - `cli/restore/command.go`
   - `cli/util/util.go`
@@ -99,6 +101,7 @@ External/runtime:
 
 3. TUI package:
 - `tui/command.go`
+- `tui/bootstrap.go`
 - `tui/app.go`
 - `tui/state.go`
 - `tui/actions.go`

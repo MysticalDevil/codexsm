@@ -6,6 +6,17 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [v0.3.6] - 2026-03-20
+
+### Changed
+
+- Refactored CLI command wiring so `group` and `agents` now live in dedicated subpackages (`cli/group`, `cli/agents`) and `cli/root.go` remains focused on composition.
+- Refactored TUI startup flow by extracting bootstrap/runtime normalization from `tui/command.go` into `tui/bootstrap.go` for clearer boundaries and easier testing.
+- Tightened query layering: `internal/core.QuerySessions` now requires an explicit repository and default scanner wiring is handled in `usecase`.
+- Updated session selection/query flow to avoid duplicate sorting work by keeping filtering order-preserving and centralizing normalized sorting in query handling.
+- Migrated local formatter/linter management to `mise` (`gofumpt`, `golangci-lint`) and slimmed `justfile` targets/recipes to reduce duplication.
+- Refreshed docs for current structure and release examples (`v0.3.6`), including architecture notes and development command references.
+
 ## [v0.3.5] - 2026-03-20
 
 ### Added

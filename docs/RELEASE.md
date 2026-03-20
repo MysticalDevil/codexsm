@@ -8,11 +8,13 @@ This checklist is for preparing the next `codexsm` release.
    - `git status --short`
    - `git fetch origin main`
 2. Confirm release version and date:
-   - choose next semver tag (example: `v0.3.5`)
+   - choose next semver tag (example: `v0.3.6`)
    - record release date in `CHANGELOG.md`
 3. Confirm Go environment:
    - `go version` (must be `1.26+`)
    - `echo $GOEXPERIMENT` (must include `jsonv2`)
+4. Sync local toolchain via `mise`:
+   - `mise install`
 
 ## Quality Gates
 

@@ -183,6 +183,7 @@ branch = "feature-branch"
 ## Development And Release
 
 ```bash
+mise install
 just fmt
 just lint
 just test
@@ -191,5 +192,5 @@ just cover-gate
 just bench-tui
 just bench-gate
 just check
-just check-release 0.3.5
+just check-release 0.3.6
 ```
