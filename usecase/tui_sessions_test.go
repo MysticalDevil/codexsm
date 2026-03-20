@@ -8,25 +8,20 @@ import (
 	"github.com/MysticalDevil/codexsm/session"
 )
 
-type stubTUIRepo struct {
-	items []session.Session
-	err   error
-}
+func repoWith(items []session.Session, err error) func(string) ([]session.Session, error) {
+	return func(_ string) ([]session.Session, error) {
+		if err != nil {
+			return nil, err
+		}
 
-func (r stubTUIRepo) ScanSessions(_ string) ([]session.Session, error) {
-	if r.err != nil {
-		return nil, r.err
+		out := make([]session.Session, len(items))
+		copy(out, items)
+
+		return out, nil
 	}
-
-	out := make([]session.Session, len(r.items))
-	copy(out, r.items)
-
-	return out, nil
 }
 
-type healthRiskEvaluator struct{}
-
-func (healthRiskEvaluator) Evaluate(s session.Session, _ session.IntegrityChecker) session.Risk {
+func healthRiskEvaluator(s session.Session, _ session.IntegrityChecker) session.Risk {
 	switch s.Health {
 	case session.HealthCorrupted:
 		return session.Risk{Level: session.RiskHigh}
@@ -52,8 +47,8 @@ func TestLoadTUISessionsRiskSortAndLimits(t *testing.T) {
 		SessionsRoot: "/tmp/sessions",
 		ScanLimit:    3,
 		ViewLimit:    2,
-		Repository:   stubTUIRepo{items: items},
-		Evaluator:    healthRiskEvaluator{},
+		Repository:   repoWith(items, nil),
+		Evaluator:    healthRiskEvaluator,
 	})
 	if err != nil {
 		t.Fatalf("LoadTUISessions: %v", err)
@@ -81,7 +76,7 @@ func TestLoadTUISessionsRepositoryError(t *testing.T) {
 
 	_, err := LoadTUISessions(LoadTUISessionsInput{
 		SessionsRoot: "/tmp/sessions",
-		Repository:   stubTUIRepo{err: want},
+		Repository:   repoWith(nil, want),
 	})
 	if !errors.Is(err, want) {
 		t.Fatalf("expected repository error, got %v", err)

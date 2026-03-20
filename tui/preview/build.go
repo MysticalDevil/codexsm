@@ -356,22 +356,6 @@ func withEllipsis(v string, width int) string {
 	return truncateDisplay(v, width-3) + "..."
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
-}
-
 func or(v, fallback string) string {
 	if strings.TrimSpace(v) != "" {
 		return v

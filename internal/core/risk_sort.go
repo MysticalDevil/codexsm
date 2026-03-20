@@ -15,13 +15,13 @@ func SortSessionsByRisk(items []session.Session, evaluator RiskEvaluator, checke
 	}
 
 	if evaluator == nil {
-		evaluator = SessionRiskEvaluator{}
+		evaluator = session.EvaluateRisk
 	}
 
 	slices.SortStableFunc(items, func(a, b session.Session) int {
-		ra := evaluator.Evaluate(a, checker)
+		ra := evaluator(a, checker)
 
-		rb := evaluator.Evaluate(b, checker)
+		rb := evaluator(b, checker)
 		if c := riskLevelRank(rb.Level) - riskLevelRank(ra.Level); c != 0 {
 			return c
 		}

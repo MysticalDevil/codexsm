@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/MysticalDevil/codexsm/session"
+	"github.com/MysticalDevil/codexsm/session/scanner"
 )
 
 type QueryResult struct {
@@ -18,7 +19,7 @@ type QueryResult struct {
 // normalized sorting and pagination.
 func QuerySessions(repo SessionRepository, root string, spec QuerySpec) (QueryResult, error) {
 	if repo == nil {
-		repo = ScannerRepository{}
+		repo = scanner.ScanSessions
 	}
 
 	if spec.Offset < 0 {
@@ -30,7 +31,7 @@ func QuerySessions(repo SessionRepository, root string, spec QuerySpec) (QueryRe
 		return QueryResult{}, err
 	}
 
-	items, err := repo.ScanSessions(root)
+	items, err := repo(root)
 	if err != nil {
 		return QueryResult{}, err
 	}

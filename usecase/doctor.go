@@ -8,6 +8,7 @@ import (
 
 	"github.com/MysticalDevil/codexsm/internal/core"
 	"github.com/MysticalDevil/codexsm/session"
+	"github.com/MysticalDevil/codexsm/session/scanner"
 )
 
 type DoctorLevel string
@@ -55,12 +56,12 @@ type DoctorRiskInput struct {
 func DoctorRisk(in DoctorRiskInput) (DoctorRiskReport, error) {
 	repo := in.Repository
 	if repo == nil {
-		repo = core.ScannerRepository{}
+		repo = scanner.ScanSessions
 	}
 
 	evaluator := in.Evaluator
 	if evaluator == nil {
-		evaluator = core.SessionRiskEvaluator{}
+		evaluator = session.EvaluateRisk
 	}
 
 	limit := in.SampleLimit
@@ -86,7 +87,7 @@ func DoctorRisk(in DoctorRiskInput) (DoctorRiskReport, error) {
 	mediumCount := 0
 
 	for _, s := range items {
-		r := evaluator.Evaluate(s, checker)
+		r := evaluator(s, checker)
 		if r.Level == session.RiskNone {
 			continue
 		}
@@ -162,7 +163,7 @@ func CheckSessionHostPaths(in DoctorHostPathInput) DoctorCheck {
 
 	repo := in.Repository
 	if repo == nil {
-		repo = core.ScannerRepository{}
+		repo = scanner.ScanSessions
 	}
 
 	q, err := core.QuerySessions(repo, in.SessionsRoot, core.QuerySpec{})
