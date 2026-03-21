@@ -430,7 +430,7 @@ type listedSession struct {
 func firstSessionFromList(t *testing.T, sessionsRoot string) (listedSession, error) {
 	t.Helper()
 
-	res := runCLI(t, []string{"list", "--sessions-root", sessionsRoot, "--format", "json", "--limit", "1"}, nil)
+	res := runCLI(t, []string{"list", "--sessions-root", sessionsRoot, "--format", "json", "--limit", "50"}, nil)
 	if res.ExitCode != 0 {
 		return listedSession{}, errors.New("list command failed")
 	}
@@ -444,7 +444,19 @@ func firstSessionFromList(t *testing.T, sessionsRoot string) (listedSession, err
 		return listedSession{}, errors.New("no sessions returned by list")
 	}
 
-	return items[0], nil
+	for _, item := range items {
+		if strings.TrimSpace(item.SessionID) == "" {
+			continue
+		}
+
+		if strings.TrimSpace(item.Path) == "" {
+			continue
+		}
+
+		return item, nil
+	}
+
+	return listedSession{}, errors.New("no selectable session with non-empty session_id")
 }
 
 func lookupSessionByID(t *testing.T, sessionsRoot, id string) (listedSession, bool, error) {
