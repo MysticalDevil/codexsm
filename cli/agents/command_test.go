@@ -138,3 +138,69 @@ func TestRenderHelpers(t *testing.T) {
 		t.Fatalf("unexpected lint table: %q", lintText)
 	}
 }
+
+func TestRenderExplainTableFiltersAndShadowed(t *testing.T) {
+	out := usecase.AgentsExplainResult{
+		CWD: "/tmp/repo",
+		Summary: usecase.AgentsExplainSummary{
+			Sources:   2,
+			Rules:     2,
+			Effective: 1,
+			Shadowed:  1,
+		},
+		Filters: usecase.AgentsExplainFilters{
+			EffectiveOnly: true,
+			SourceFilter:  "sub",
+			RuleFilter:    "rg",
+		},
+		Sources: []usecase.AgentsExplainSource{
+			{Priority: 0, Path: "/tmp/repo/AGENTS.md"},
+			{Priority: 1, Path: "/tmp/repo/sub/AGENTS.md"},
+		},
+		Rules: []usecase.AgentsExplainRule{
+			{Priority: 0, Text: "Prefer rg", SourcePath: "/tmp/repo/AGENTS.md", Line: 1, Status: "effective"},
+			{Priority: 1, Text: "Use grep", SourcePath: "/tmp/repo/sub/AGENTS.md", Line: 2, Status: "shadowed", ShadowedBy: "Prefer rg"},
+		},
+	}
+
+	text := renderExplainTable(out, true)
+	if !strings.Contains(text, "filters: effective_only=true") {
+		t.Fatalf("expected filters row, got: %q", text)
+	}
+
+	if !strings.Contains(text, "SHADOWED RULES") {
+		t.Fatalf("expected shadowed section, got: %q", text)
+	}
+}
+
+func TestLintStrictReturnsErrorOnWarnings(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+
+	repo := filepath.Join(t.TempDir(), "repo")
+	if err := os.MkdirAll(repo, 0o755); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(repo, "AGENTS.md"), []byte("Prefer rg.\nPrefer rg.\n"), 0o644); err != nil {
+		t.Fatalf("write AGENTS: %v", err)
+	}
+
+	cmd := NewCommand()
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetArgs([]string{"lint", "--cwd", repo, "--strict"})
+
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected strict-mode lint error")
+	}
+
+	if !strings.Contains(err.Error(), "strict mode") {
+		t.Fatalf("unexpected strict error: %v", err)
+	}
+}
