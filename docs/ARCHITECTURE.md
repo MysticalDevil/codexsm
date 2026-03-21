@@ -8,7 +8,7 @@ Known hot spots:
 
 - `cli` root is thinner now and mostly command wiring, but still owns shared runtime/helper concerns (`runtime_*.go`, `pager.go`, `session.go`) that should remain focused and avoid feature creep.
 - `session/scanner/*` and `session/migrate/*` are split subpackages, but scan and migration hot paths still need benchmark-driven tuning.
-- `tui/*` is more modular (`command` + `bootstrap` split), but narrow-width behavior still depends on coordinated changes across layout metrics, keybar rendering, and info-row formatting.
+- `tui/*` is now split into a runtime-agnostic engine (`app/state/actions/view`) and a runtime adapter layer (`tui/runtime/*`), but narrow-width behavior still depends on coordinated changes across layout metrics, keybar rendering, and info-row formatting.
 
 ## Architecture Design
 

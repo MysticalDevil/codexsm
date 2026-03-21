@@ -27,13 +27,13 @@ export GOEXPERIMENT=jsonv2
 ## Install
 
 ```bash
-GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.3.6
+GOEXPERIMENT=jsonv2 go install github.com/MysticalDevil/codexsm@v0.3.7
 ```
 
 Or with `mise`:
 
 ```bash
-GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.3.6
+GOEXPERIMENT=jsonv2 mise install go:github.com/MysticalDevil/codexsm@v0.3.7
 ```
 
 ## Quick Start
@@ -162,7 +162,7 @@ just stress-cli
 codexsm doctor risk --sessions-root ./testdata/fixtures/risky-static/sessions --format json --sample-limit 5
 just gen-sessions-extreme
 just gen-sessions-large
-just check-release 0.3.6
+just check-release 0.3.7
 ```
 
 Fixture note:
@@ -176,7 +176,7 @@ Fixture note:
 Release build example:
 
 ```bash
-GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.3.6" -o codexsm .
+GOEXPERIMENT=jsonv2 go build -ldflags="-X main.version=0.3.7" -o codexsm .
 ```
 
 ## License

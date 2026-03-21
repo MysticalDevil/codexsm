@@ -6,17 +6,21 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [v0.3.7] - 2026-03-21
+
 ### Added
 
 - Added `agents lint` command with table/json outputs and `--strict` mode to surface shadowed/duplicate AGENTS.md rules in local checks and CI workflows.
 - Added filter support to `agents explain` (`--effective-only`, `--source`, `--rule`) and included filter metadata in JSON output for easier automation.
 - Added dedicated CLI blackbox integration coverage under `cli/blackbox/integration_test.go` for exit-code contracts, stream routing (`stdout`/`stderr`), dry-run file-safety checks, and strict-lint JSON failure behavior.
 - Added command-package tests under `cli/agents/command_test.go` for format validation, JSON output decoding, and render helper branches.
+- Added TUI runtime abstraction under `tui/runtime/*` (`Event`/`Effect` protocol + Bubble Tea adapter), so UI loop/runtime is now pluggable without changing TUI state/action engine code.
 
 ### Changed
 
 - Updated integration test wiring to include all CLI subpackages (`./cli/...`) in both `just test-integration` defaults and CI integration coverage runs.
 - Documented CLI exit-code policy in `docs/COMMANDS.md` (`0` success, `1` validation/policy failure) to stabilize scripting expectations.
+- Refactored TUI architecture to decouple engine state/actions (`tui/app.go`) from rendering/event-loop runtime (`tui/runtime/*`), with runtime selected via dependency injection in `tui.CommandDeps`.
 
 ## [v0.3.6] - 2026-03-20
 
